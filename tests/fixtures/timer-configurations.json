@@ -1,0 +1,339 @@
+[
+    {
+        "name": "stopwatch",
+        "block": {
+            "timer_type": "stopwatch"
+        },
+        "expected": {
+            "limit_ms": null,
+            "direction": "up",
+            "preparation_ms": 10000
+        },
+        "compiled": {
+            "version": 1,
+            "type": "stopwatch",
+            "preparation_ms": 10000,
+            "duration_ms": null,
+            "direction": "up",
+            "limit_ms": null,
+            "interval_ms": 60000,
+            "rounds": 1,
+            "cycle_ms": 0,
+            "segments": []
+        }
+    },
+    {
+        "name": "countdown",
+        "block": {
+            "timer_type": "countdown",
+            "duration_seconds": 60
+        },
+        "expected": {
+            "limit_ms": 60000,
+            "direction": "down"
+        },
+        "compiled": {
+            "version": 1,
+            "type": "countdown",
+            "preparation_ms": 10000,
+            "duration_ms": 60000,
+            "direction": "down",
+            "limit_ms": 60000,
+            "interval_ms": 60000,
+            "rounds": 1,
+            "cycle_ms": 0,
+            "segments": []
+        }
+    },
+    {
+        "name": "for_time",
+        "block": {
+            "timer_type": "for_time",
+            "duration_seconds": 120
+        },
+        "expected": {
+            "limit_ms": 120000,
+            "direction": "up"
+        },
+        "compiled": {
+            "version": 1,
+            "type": "for_time",
+            "preparation_ms": 10000,
+            "duration_ms": 120000,
+            "direction": "up",
+            "limit_ms": 120000,
+            "interval_ms": 60000,
+            "rounds": 1,
+            "cycle_ms": 0,
+            "segments": []
+        }
+    },
+    {
+        "name": "uncapped_for_time",
+        "block": {
+            "timer_type": "for_time",
+            "duration_seconds": 120,
+            "timer_settings": {
+                "stop_at_cap": false
+            }
+        },
+        "expected": {
+            "limit_ms": null,
+            "duration_ms": 120000
+        },
+        "compiled": {
+            "version": 1,
+            "type": "for_time",
+            "preparation_ms": 10000,
+            "duration_ms": 120000,
+            "direction": "up",
+            "limit_ms": null,
+            "interval_ms": 60000,
+            "rounds": 1,
+            "cycle_ms": 0,
+            "segments": []
+        }
+    },
+    {
+        "name": "amrap",
+        "block": {
+            "timer_type": "amrap",
+            "duration_seconds": 600
+        },
+        "expected": {
+            "limit_ms": 600000,
+            "direction": "down"
+        },
+        "compiled": {
+            "version": 1,
+            "type": "amrap",
+            "preparation_ms": 10000,
+            "duration_ms": 600000,
+            "direction": "down",
+            "limit_ms": 600000,
+            "interval_ms": 60000,
+            "rounds": 1,
+            "cycle_ms": 0,
+            "segments": []
+        }
+    },
+    {
+        "name": "emom",
+        "block": {
+            "timer_type": "emom",
+            "duration_seconds": 600,
+            "timer_settings": {
+                "interval_seconds": 60
+            }
+        },
+        "expected": {
+            "interval_ms": 60000,
+            "limit_ms": 600000
+        },
+        "compiled": {
+            "version": 1,
+            "type": "emom",
+            "preparation_ms": 10000,
+            "duration_ms": 600000,
+            "direction": "down",
+            "limit_ms": 600000,
+            "interval_ms": 60000,
+            "rounds": 1,
+            "cycle_ms": 0,
+            "segments": []
+        }
+    },
+    {
+        "name": "tabata",
+        "block": {
+            "timer_type": "tabata",
+            "timer_settings": {
+                "work_seconds": 20,
+                "rest_seconds": 10,
+                "rounds": 8
+            }
+        },
+        "expected": {
+            "limit_ms": 230000,
+            "cycle_ms": 30000,
+            "rounds": 8
+        },
+        "compiled": {
+            "version": 1,
+            "type": "tabata",
+            "preparation_ms": 10000,
+            "duration_ms": 230000,
+            "direction": "down",
+            "limit_ms": 230000,
+            "interval_ms": 60000,
+            "rounds": 8,
+            "cycle_ms": 30000,
+            "segments": [
+                {
+                    "phase": "work",
+                    "duration_ms": 20000,
+                    "station": null
+                },
+                {
+                    "phase": "rest",
+                    "duration_ms": 10000,
+                    "station": null
+                }
+            ]
+        }
+    },
+    {
+        "name": "interval",
+        "block": {
+            "timer_type": "interval",
+            "timer_settings": {
+                "work_seconds": 30,
+                "rest_seconds": 10,
+                "transition_seconds": 5,
+                "rounds": 3
+            }
+        },
+        "expected": {
+            "limit_ms": 120000,
+            "cycle_ms": 45000
+        },
+        "compiled": {
+            "version": 1,
+            "type": "interval",
+            "preparation_ms": 10000,
+            "duration_ms": 120000,
+            "direction": "down",
+            "limit_ms": 120000,
+            "interval_ms": 60000,
+            "rounds": 3,
+            "cycle_ms": 45000,
+            "segments": [
+                {
+                    "phase": "work",
+                    "duration_ms": 30000,
+                    "station": null
+                },
+                {
+                    "phase": "rest",
+                    "duration_ms": 10000,
+                    "station": null
+                },
+                {
+                    "phase": "transition",
+                    "duration_ms": 5000,
+                    "station": null
+                }
+            ]
+        }
+    },
+    {
+        "name": "circuit",
+        "block": {
+            "timer_type": "circuit",
+            "timer_settings": {
+                "work_seconds": 30,
+                "rest_seconds": 10,
+                "transition_seconds": 5,
+                "rounds": 2
+            },
+            "stations": [
+                {
+                    "name": "Row",
+                    "duration_seconds": 20,
+                    "rest_seconds": 0
+                },
+                {
+                    "name": "Squat",
+                    "transition_seconds": 0
+                }
+            ]
+        },
+        "expected": {
+            "limit_ms": 120000,
+            "cycle_ms": 65000
+        },
+        "compiled": {
+            "version": 1,
+            "type": "circuit",
+            "preparation_ms": 10000,
+            "duration_ms": 120000,
+            "direction": "down",
+            "limit_ms": 120000,
+            "interval_ms": 60000,
+            "rounds": 2,
+            "cycle_ms": 65000,
+            "segments": [
+                {
+                    "phase": "work",
+                    "duration_ms": 20000,
+                    "station": 0
+                },
+                {
+                    "phase": "transition",
+                    "duration_ms": 5000,
+                    "station": 0
+                },
+                {
+                    "phase": "work",
+                    "duration_ms": 30000,
+                    "station": 1
+                },
+                {
+                    "phase": "rest",
+                    "duration_ms": 10000,
+                    "station": 1
+                }
+            ]
+        }
+    },
+    {
+        "name": "none",
+        "block": {
+            "timer_type": "none"
+        },
+        "expected": {
+            "limit_ms": null,
+            "direction": "none",
+            "preparation_ms": 0
+        },
+        "compiled": {
+            "version": 1,
+            "type": "none",
+            "preparation_ms": 0,
+            "duration_ms": null,
+            "direction": "none",
+            "limit_ms": null,
+            "interval_ms": 60000,
+            "rounds": 1,
+            "cycle_ms": 0,
+            "segments": []
+        }
+    },
+    {
+        "name": "repetitions",
+        "block": {
+            "timer_type": "repetitions",
+            "timer_settings": {
+                "rounds": 4
+            }
+        },
+        "expected": {
+            "limit_ms": null,
+            "direction": "none",
+            "preparation_ms": 0,
+            "rounds": 4
+        },
+        "compiled": {
+            "version": 1,
+            "type": "repetitions",
+            "preparation_ms": 0,
+            "duration_ms": null,
+            "direction": "none",
+            "limit_ms": null,
+            "interval_ms": 60000,
+            "rounds": 4,
+            "cycle_ms": 0,
+            "segments": []
+        }
+    }
+]

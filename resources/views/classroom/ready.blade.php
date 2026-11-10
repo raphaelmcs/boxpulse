@@ -1,0 +1,12 @@
+@extends('layouts.app')
+@section('title', 'Preparar apresentação')
+@section('workspace', 'coach')
+@section('content')
+<x-sessions.navigation />
+<section class="classroom-ready-header"><div class="dashboard-logo-frame">@if($box->logo_path)<img class="dashboard-box-logo" src="{{ route('box.logo') }}" alt="Logo de {{ $box->name }}">@else<span class="dashboard-box-initial" aria-hidden="true">{{ mb_substr($box->name, 0, 1) }}</span>@endif</div><div><p class="eyebrow">{{ $box->name }} / {{ $session->modality_name }}</p><h1>{{ $session->title }}</h1><p class="muted">Aula #{{ $session->id }} · preparada em {{ $session->created_at->setTimezone($box->timezone)->format('d/m/Y H:i') }} · {{ $session->timers->count() }} bloco(s)</p></div></section>
+<section class="classroom-ready-actions form-panel"><div><h2>{{ $session->status !== 'active' ? 'Esta aula já foi encerrada.' : ($session->hasExecutionActivity() ? 'Sua aula está preservada.' : 'Tudo pronto para a aula.') }}</h2><p class="muted">{{ $session->status !== 'active' ? 'Consulte o resumo ou escolha um treino para preparar outra aula.' : ($session->hasExecutionActivity() ? 'Abrir a apresentação mantém o conteúdo e o tempo desta aula.' : 'Abra a apresentação. O cronômetro aguarda seu comando no controle da aula.') }}</p></div><div class="button-row"><a class="secondary-button" href="{{ route('sessions.tv', $session) }}" target="_blank" rel="noopener">Abrir na TV ↗</a><a class="primary-button compact" href="{{ route('sessions.control', $session) }}">{{ $session->status === 'active' ? 'Ir para controle da aula' : 'Consultar painel da aula' }} →</a></div><p class="input-hint">Com uma única tela, use o controle da aula: ele também mostra o cronômetro, os exercícios e as cargas.</p></section>
+@if($session->workout_version !== $session->workout->content_version)<p class="notice">O treino cadastrado foi alterado. Esta apresentação mantém o conteúdo da aula #{{ $session->id }}. Confira o aviso no controle da aula.</p>@endif
+<div class="section-heading"><h2>Resumo da apresentação</h2><span class="input-hint">Conteúdo da aula #{{ $session->id }}</span></div>
+<div class="workout-blocks">@foreach($session->timers as $timer)<x-sessions.snapshot-block :timer="$timer" />@endforeach</div>
+<div class="session-end-links"><a class="text-link" href="{{ route('coach.today') }}">← Voltar ao Modo Aula</a><a class="text-link" href="{{ route('sessions.summary', $session) }}">Ver resumo da sessão →</a></div>
+@endsection

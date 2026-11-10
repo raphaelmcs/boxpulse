@@ -1,0 +1,8 @@
+@props(['workout'])
+@php($last = $workout->latestSession)
+@php($needsNewSession = ! $workout->activeSession && $last)
+@if($workout->status === 'published' && auth()->user()->box->offersModality($workout->training_modality_id))
+<section class="form-panel prepare-session-panel"><h2>Iniciar apresentação</h2><p class="muted">Prepare a sessão e abra o painel do coach. O timer só começa após um novo clique em Iniciar etapa.</p><form method="POST" action="{{ route('sessions.store', $workout) }}" class="form-stack">@csrf
+@if($needsNewSession)<input type="hidden" name="previous_session_id" value="{{ $last->id }}"><label class="checkbox-label"><input type="checkbox" name="new_session_confirmation" value="1" required>Confirmo iniciar outra aula. A sessão anterior #{{ $last->id }} permanece no histórico.</label>@endif
+<div class="field-grid two-columns"><label>Contagem de preparação<select name="preparation_seconds"><option value="">Usar configuração de cada bloco (padrão 10 s)</option>@foreach([0,3,5,10,15] as $seconds)<option value="{{ $seconds }}">{{ $seconds === 0 ? 'Sem preparação' : $seconds.' segundos' }}</option>@endforeach</select></label><label class="checkbox-label"><input type="checkbox" name="auto_advance" value="1">Avançar e iniciar automaticamente os próximos blocos ao terminar o timer.</label></div><button class="primary-button compact" type="submit">Iniciar apresentação ↗</button><p class="input-hint">Por padrão, cada troca de etapa depende do coach. Uma aula já iniciada será preservada, com aviso se o treino mudou. Preparações desatualizadas ainda não iniciadas serão substituídas por uma nova sessão.</p></form></section>
+@endif

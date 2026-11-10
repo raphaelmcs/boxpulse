@@ -1,0 +1,7 @@
+@props(['timer'])
+<article class="display-block"><header><span class="block-number">0{{ $timer->position + 1 }}</span><div><p class="eyebrow">{{ ['warmup' => 'AQUECIMENTO', 'skill' => 'TÉCNICA / FORÇA', 'workout' => 'PRINCIPAL'][$timer->block_type] }}</p><h2>{{ $timer->title ?: ['warmup' => 'Aquecimento', 'skill' => 'Técnica / Força', 'workout' => 'Workout principal'][$timer->block_type] }}</h2></div><span class="timer-label">{{ \App\Workouts\TimerConfiguration::LABELS[$timer->timer_type] }}</span></header>
+    <p class="timer-config">{{ $timer->timer_type === 'for_time' ? 'Time cap' : 'Duração' }} · {{ \App\Workouts\WorkoutPresentation::duration($timer->config['duration_ms']) }}</p><div class="exercise-description">{{ $timer->description }}</div>
+    @if($timer->stations_snapshot)<ol class="display-stations">@foreach($timer->stations_snapshot as $station)<li><strong>{{ $station['name'] }}</strong><div class="station-metrics">@foreach(['distance' => 'm', 'repetitions' => 'reps', 'load' => 'kg', 'duration_seconds' => 's de trabalho', 'rest_seconds' => 's de descanso', 'transition_seconds' => 's de transição'] as $key => $unit)@if(isset($station[$key]))<span>{{ $station[$key] }} {{ $unit }}</span>@endif @endforeach</div><div class="exercise-description">{{ $station['description'] ?? '' }}</div></li>@endforeach</ol>@endif
+    <x-workouts.suggested-loads :loads="$timer->suggested_loads" />
+    @if($timer->notes)<p class="block-notes exercise-description">{{ $timer->notes }}</p>@endif
+</article>
