@@ -1,11 +1,10 @@
 import { SessionClock, formatTime } from './engine.js';
 import { PollingTransport } from './polling-transport.js';
-import { ContentPager } from './content-pager.js';
+import { AdaptiveContent } from './adaptive-content.js';
 import { SoundSignals } from './sound-signals.js';
 
 const phases={idle:'Pronto para começar',preparation:'Preparação',work:'Em execução',rest:'Descanso',transition:'Transição',completed:'Etapa finalizada',cancelled:'Aula cancelada'};
 const states={idle:'Aguardando o coach',preparing:'Contagem de preparação',running:'Em execução',paused:'Pausado',completed:'Etapa finalizada',cancelled:'Cancelado'};
-const formats={none:'Sem tempo',repetitions:'Circuito por repetições',stopwatch:'Contagem progressiva',countdown:'Contagem regressiva',for_time:'FOR TIME',amrap:'AMRAP',emom:'EMOM',tabata:'TABATA',interval:'INTERVALADO',circuit:'CIRCUITO'};
 const blocks={warmup:'Warm-up / Aquecimento',skill:'Técnica / Força',workout:'Workout principal'};
 const text=(node,value)=>{ if(node && node.textContent!==String(value)) node.textContent=String(value); };
 
@@ -16,7 +15,7 @@ export class SessionApp {
         this.client=crypto.randomUUID();
         this.transport=new PollingTransport(root);
         this.clock=new SessionClock();
-        this.pager=new ContentPager(root);
+        this.presentation=new AdaptiveContent(root);
         this.sounds=new SoundSignals(root.querySelector('[data-audio-toggle]'));
         this.online=false;
         this.authorized=true;
@@ -87,7 +86,6 @@ export class SessionApp {
         }
         if(this.blockId!==timer.id) {
             this.blockId=timer.id;
-            this.pager.station=null;
             const loads=timer.suggested_loads;
             const section=this.root.querySelector('[data-suggested-loads]');
             if(section) {
@@ -99,11 +97,11 @@ export class SessionApp {
                     text(card.querySelector('[data-load-value]'),value!==null && value!==undefined ? `${value}${loads?.unit && /^[0-9]+(?:[.,][0-9]+)?$/.test(value)?` ${loads.unit}`:''}`:'');
                 });
             }
-            this.pager.setBlock(timer);
+            this.presentation.setBlock(timer);
         }
         text(this.elements['block-label'],blocks[timer.block_type]);
         text(this.elements['block-title'],timer.title || blocks[timer.block_type]);
-        text(this.elements['timer-format'],formats[timer.timer_type]);
+        text(this.elements['timer-format'],snapshot.timer_formats?.[timer.timer_type] || timer.timer_type);
         const signature=JSON.stringify([snapshot.current_position,...snapshot.timers.map((item)=>[item.id,item.state])]);
         if(signature!==this.stagesSignature) {
             this.stagesSignature=signature;
@@ -223,7 +221,7 @@ export class SessionApp {
             text(this.elements.round,timer.timer_type==='repetitions'?`${rounds} rounds programados`:rounds>1?`Round ${projection.round} / ${rounds}`:'');
             const station=projection.station===null?null:timer.stations[projection.station];
             text(this.elements['current-station'],station?`Estação ${projection.station+1} · ${station.name}`:'');
-            this.pager.focusStation(projection.station);
+            this.presentation.focusStation(projection.station);
             const progress=this.elements.progress;
             progress.hidden=projection.progress===null;
             if(projection.progress!==null) {
@@ -239,7 +237,6 @@ export class SessionApp {
             }
             const now=performance.now();
             this.sounds.update(timer,projection,now);
-            this.pager.tick(now);
             this.updateControls();
         }
         this.frame=requestAnimationFrame(()=>this.renderFrame());

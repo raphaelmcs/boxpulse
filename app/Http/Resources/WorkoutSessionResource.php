@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Support\BoxTheme;
+use App\Workouts\TimerConfiguration;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,6 +17,7 @@ class WorkoutSessionResource extends JsonResource
 
         return [
             'box' => ['name' => $box->name, 'timezone' => $box->timezone, 'theme' => BoxTheme::variables($box), 'logo_url' => $box->logo_path ? route('box.logo', ['v' => hash('sha256', $box->logo_path)]) : null],
+            'timer_formats' => TimerConfiguration::LABELS,
             'id' => $this->id, 'title' => $this->title, 'modality_name' => $this->modality_name,
             'execution_started' => $this->hasExecutionActivity(),
             'source' => [

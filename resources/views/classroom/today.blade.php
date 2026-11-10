@@ -14,11 +14,11 @@
         $last = $workout->latestSession;
         $begun = $active?->hasExecutionActivity();
         $newRun = ! $active && $last;
-        $main = $workout->blocks->firstWhere('type', 'workout');
+        $main = $workout->blocks->firstWhere('type', 'workout') ?? $workout->blocks->first();
     @endphp
     <article class="classroom-card" id="workout-{{ $workout->id }}" data-workout-id="{{ $workout->id }}">
         <div class="classroom-card-top"><span class="eyebrow">{{ $workout->modality->name }}</span><span class="status-badge {{ $active ? 'published' : 'draft' }}">{{ $active ? ($begun ? 'Aula em andamento' : 'Preparação pronta') : ($last ? 'Última aula encerrada' : 'Pronta para preparar') }}</span></div>
-        <h3>{{ $workout->title }}</h3><p class="classroom-structure">{{ $workout->structure === 'full' ? 'Warm-up + Skill + Workout' : 'Workout principal' }} · {{ $workout->blocks->count() }} {{ $workout->blocks->count() === 1 ? 'bloco' : 'blocos' }}</p>
+        <h3>{{ $workout->title }}</h3><p class="classroom-structure">{{ $workout->blocks->map(fn ($block) => ['warmup' => 'Warm-up', 'skill' => 'Skill', 'workout' => 'Workout'][$block->type])->join(' + ') }} · {{ $workout->blocks->count() }} {{ $workout->blocks->count() === 1 ? 'bloco' : 'blocos' }}</p>
         <p class="classroom-timing">{{ \App\Workouts\WorkoutPresentation::mainTiming($main) }}</p>
         @if($active)<p class="input-hint">Aula #{{ $active->id }} · preparada em {{ $active->created_at->setTimezone($box->timezone)->format('d/m H:i') }}@if($active->workout_version !== $workout->content_version) · {{ $begun ? 'Conteúdo original preservado.' : 'O conteúdo será atualizado ao preparar.' }}@endif</p>
         @elseif($last)<p class="input-hint">Última aula #{{ $last->id }} · {{ $last->finished_at?->setTimezone($box->timezone)->format('d/m H:i') }} · <a class="text-link" href="{{ route('sessions.summary', $last) }}">Ver resumo</a></p>@endif

@@ -72,7 +72,7 @@ Para revisão manual, seguir [qa-phase3.md](qa-phase3.md).
 
 **Validação:** 130 testes PHP / 803 verificações no PHP 8.3; suíte Sail PHP 8.5 e regressão temporal verificadas; 16 testes Node do motor. Build, Pint, Composer e diff check aprovados. Chrome reproduziu Front Squat → Clean & Jerk com alteração de blocos/timers, nova preparação, coach/TV, preservação de execução iniciada, aviso/reinício explícito e histórico. Logos horizontal/quadrada/vertical sem corte ou duplicação no dashboard; mobile sem overflow e TV Full HD sem rolagem.
 
-**Pendências:** não foi feita a separação visual Gestão/Aula; a proposta solicitada está em [coach-workspaces.md](coach-workspaces.md). Recomenda-se implementá-la gradualmente com layouts e aliases de rotas, reutilizando autenticação, policies, Actions e motor. Homologação em equipamentos físicos e preparação comercial continuam sendo etapas operacionais posteriores.
+**Situação ao concluir a Fase 3.1 (superada pela Fase 4 abaixo):** ainda não havia separação visual Gestão/Aula; a proposta solicitada está em [coach-workspaces.md](coach-workspaces.md). Recomenda-se implementá-la gradualmente com layouts e aliases de rotas, reutilizando autenticação, policies, Actions e motor. Homologação em equipamentos físicos e preparação comercial continuam sendo etapas operacionais posteriores.
 
 ## Fase 3.2 — cargas e modalidades concluídas
 
@@ -81,3 +81,19 @@ Implementadas seleção obrigatória por box no cadastro/configurações, dashbo
 Duas migrations aditivas aplicadas sem reescrever conteúdo, tempos ou histórico. 152 testes PHP / 1.089 verificações em PHP 8.3 e Sail PHP 8.5, 16 testes Node, build/Pint/Composer aprovados. Chrome confirmou fluxo real e TV Full HD/QHD/4K sem rolagem, além de viewport mobile. Inventário, decisões, rotas, limites e roteiro em [Fase 3.2](phase-3.2.md).
 
 Próxima etapa sugerida: evolução gradual Gestão/Aula conforme proposta, sem outro projeto ou novo mecanismo de autenticação. Não há pendência funcional conhecida desta fase.
+
+
+## Fase 4 — ambientes entregues
+
+Seleção `/workspace` após autenticar, Gestão `/manage` com dashboard anterior compatível, Modo Aula `/coach` com filtros ativos/data civil e estados de preparação/retomada. Resumo inicial antes da TV/controle, ações principais destacadas, confirmações e retorno operacional após encerrar. Histórico por treino identifica cada aula por número/horário. Mesmas Actions, auth/tenant/banco e motor; sem migrations. Antes do hotfix, 169 testes PHP / 1.346 verificações e fluxo Chrome completo passaram. Dezesseis pedidos concorrentes em duas rodadas deduplicaram uma sessão por rodada. Documento atual em [coach-workspaces](coach-workspaces.md).
+
+## Hotfix local — apresentação, etapas e formatos
+
+Substituída a paginação ativa por layout adaptativo com medição, densidades limitadas e até duas colunas ordenadas. Aviso de excesso antes da execução e na TV; conteúdo completo preservado no coach. Etapas opcionais não vazias e formatos universais em qualquer modalidade/bloco; IDs e snapshots anteriores conservados. Defaults e regras no registro central, com EMOM padrão 60 s.
+
+Chrome validou 24 combinações de 3/8/15/25 instruções, com/sem cargas, Full HD/QHD/4K; todos os grupos dentro do painel sem scroll/paginação. Títulos/linhas longas e fullscreen passaram. Excesso de 350 instruções foi avisado no cadastro/preview/TV sem perda de texto. [Diagnóstico, arquivos, limites e preparo de release](production-hotfix.md).
+
+Não houve migration, deploy ou alteração no banco de produção. Pendência operacional: homologar distância/legibilidade/áudio na TV física e aprovar uma publicação manual na Hostinger. Isso não impede concluir a implementação local.
+
+
+Validação final integrada: **284 testes PHP / 3.293 verificações em PHP 8.3 e Sail PHP 8.5; 27 testes JavaScript (16 timers + 11 apresentação). Build Vite, Pint, Composer, compilação Blade e diff check aprovados.**

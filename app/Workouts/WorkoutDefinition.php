@@ -32,13 +32,7 @@ class WorkoutDefinition
             'blocks.*.timer_type' => ['required', Rule::in(array_keys(TimerConfiguration::LABELS))],
             'blocks.*.duration_seconds' => ['nullable', 'integer', 'min:1', 'max:86400'],
             'blocks.*.timer_settings' => ['sometimes', 'array:preparation_seconds,interval_seconds,work_seconds,rest_seconds,rounds,transition_seconds,stop_at_cap'],
-            'blocks.*.timer_settings.stop_at_cap' => ['sometimes', 'boolean'],
-            'blocks.*.timer_settings.preparation_seconds' => ['nullable', 'integer', 'min:0', 'max:60'],
-            'blocks.*.timer_settings.interval_seconds' => ['nullable', 'integer', 'min:1', 'max:86400'],
-            'blocks.*.timer_settings.work_seconds' => ['nullable', 'integer', 'min:1', 'max:86400'],
-            'blocks.*.timer_settings.rest_seconds' => ['nullable', 'integer', 'min:0', 'max:86400'],
-            'blocks.*.timer_settings.rounds' => ['nullable', 'integer', 'min:1', 'max:1000'],
-            'blocks.*.timer_settings.transition_seconds' => ['nullable', 'integer', 'min:0', 'max:3600'],
+            ...collect(TimerConfiguration::parameterRules())->mapWithKeys(fn ($rules, $field) => ["blocks.*.timer_settings.$field" => $rules])->all(),
             'blocks.*.stations' => ['sometimes', 'array', 'list', 'max:64'],
             'blocks.*.stations.*' => ['array:name,description,distance,repetitions,load,duration_seconds,rest_seconds,transition_seconds'],
             'blocks.*.stations.*.name' => [$published ? 'required' : 'nullable', 'string', 'max:160'],
@@ -60,13 +54,13 @@ class WorkoutDefinition
             return;
         }
         $data = $validator->getData();
-        $blocks = $data['blocks'] ?? [];
+        $blocks = $this->meaningfulBlocks($data['blocks'] ?? []);
         $published = $data['status'] === 'published';
         $modality = TrainingModality::findOrFail($data['training_modality_id'])->slug;
         $types = array_column($blocks, 'type');
         $expected = $data['structure'] === 'full' ? ['warmup', 'skill', 'workout'] : ['workout'];
-        if (($published && $types !== $expected) || array_diff($types, $expected) !== [] || ($types !== [] && $types !== array_values(array_intersect($expected, $types)))) {
-            $validator->errors()->add('blocks', 'Organize os blocos como aquecimento, técnica e principal; no modo simplificado, use apenas o principal.');
+        if (($published && $types === []) || array_diff($types, $expected) !== [] || ($types !== [] && $types !== array_values(array_intersect($expected, $types)))) {
+            $validator->errors()->add('blocks', 'Preencha ao menos uma etapa para publicar, na ordem aquecimento, técnica e principal. No modo simplificado, use apenas o principal.');
         }
         foreach ($blocks as $index => $block) {
             $key = "blocks.$index";
@@ -77,30 +71,21 @@ class WorkoutDefinition
             if (! array_key_exists($type, TimerConfiguration::formats($modality, $block['type']))) {
                 $validator->errors()->add("$key.timer_type", 'Formato indisponível para esta modalidade e bloco.');
             }
-            if (($block['stations'] ?? []) !== [] && ($modality === 'crossfit' || $block['type'] !== 'workout')) {
-                $validator->errors()->add("$key.stations", 'Estações são permitidas no bloco principal de HYROX e Funcional.');
-            }
             if (in_array($type, ['none', 'repetitions', 'tabata', 'interval', 'circuit'], true) && ! empty($block['duration_seconds'])) {
                 $validator->errors()->add("$key.duration_seconds", 'Neste formato, o tempo é livre ou calculado pelos intervalos.');
             }
             if (! $published) {
                 continue;
             }
-            if (trim($block['description'] ?? '') === '' && empty($block['stations'])) {
-                $validator->errors()->add("$key.description", 'Descreva o bloco ou adicione as estações antes de publicar.');
-            }
-            if ($block['type'] === 'skill' && trim($block['title'] ?? '') === '') {
-                $validator->errors()->add("$key.title", 'Informe o título da técnica antes de publicar.');
-            }
-            if (in_array($type, ['countdown', 'amrap', 'emom'], true) && empty($block['duration_seconds'])) {
+            if (TimerConfiguration::registry()[$type]['duration_required'] && empty($block['duration_seconds'])) {
                 $validator->errors()->add("$key.duration_seconds", 'Informe a duração para publicar.');
             }
             foreach (TimerConfiguration::settingKeys($type) as $setting) {
-                if (! in_array($setting, ['transition_seconds', 'stop_at_cap'], true) && ! isset($block['timer_settings'][$setting])) {
+                if (! in_array($setting, ['transition_seconds', 'stop_at_cap'], true) && ! isset($block['timer_settings'][$setting]) && ! array_key_exists($setting, TimerConfiguration::defaults())) {
                     $validator->errors()->add("$key.timer_settings.$setting", 'Preencha este parâmetro para publicar.');
                 }
             }
-            if ($type === 'emom' && isset($block['timer_settings']['interval_seconds'], $block['duration_seconds']) && ($block['duration_seconds'] % $block['timer_settings']['interval_seconds'] !== 0)) {
+            if ($type === 'emom' && isset($block['duration_seconds']) && ($block['duration_seconds'] % ($block['timer_settings']['interval_seconds'] ?? TimerConfiguration::defaults()['interval_seconds']) !== 0)) {
                 $validator->errors()->add("$key.timer_settings.interval_seconds", 'A duração total deve ser um múltiplo do intervalo.');
             }
             if ($type === 'circuit' && empty($block['stations'])) {
@@ -109,12 +94,28 @@ class WorkoutDefinition
         }
     }
 
+    public function meaningfulBlocks(array $blocks): array
+    {
+        return array_filter($blocks, function (array $block): bool {
+            foreach (['title', 'description', 'notes'] as $field) {
+                if (trim($block[$field] ?? '') !== '') {
+                    return true;
+                }
+            }
+
+            return ! empty($block['stations']) || SuggestedLoads::normalize($block['suggested_loads'] ?? null) !== null;
+        });
+    }
+
     public function validate(array $data): array
     {
         $validator = Validator::make($data, $this->rules($data), [], $this->attributes());
         $validator->after(fn (LaravelValidator $validator) => $this->checkStructure($validator));
 
-        return $validator->validate();
+        $validated = $validator->validate();
+        $validated['blocks'] = array_values($this->meaningfulBlocks($validated['blocks'] ?? []));
+
+        return $validated;
     }
 
     public function fromWorkout(Workout $workout): array

@@ -2416,3 +2416,45 @@ body {
     .control-box-logo { width:64px; height:64px; }
     .classroom-control-identity { gap:14px; }
 }
+
+.stage-fields { padding:0; margin:0; border:0; min-width:0; }
+.stage-fields[hidden] { display:none; }
+.optional-stages legend { font-weight:700; }
+.optional-stages .button-row { margin-top:18px; }
+.adaptive-content, [data-content-pages] {
+    display:grid;
+    align-items:start;
+    align-content:start;
+    min-height:0;
+    min-width:0;
+    overflow:visible;
+    gap:calc(var(--adaptive-gap,10px)*2);
+}
+.adaptive-column { display:flex; flex-direction:column; gap:var(--adaptive-gap,10px); min-width:0; }
+.adaptive-instruction { margin:0; font-size:var(--adaptive-font,28px); line-height:1.18; white-space:pre-wrap; overflow-wrap:anywhere; }
+.adaptive-instruction.is-current-station { color:var(--box-accent); }
+.presentation-capacity-warning { padding:18px; border:1px solid #ad8538; background:#2c2110; color:#ffdf9e; line-height:1.5; overflow-wrap:anywhere; }
+.presentation-capacity-warning[hidden] { display:none; }
+.tv-shell .session-content { grid-template-rows:auto auto minmax(0,1fr) auto auto; }
+.tv-shell[data-content-layout="compact"] .session-board { grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr); gap:1.2vw; }
+.tv-shell[data-content-layout="wide"] .session-board { grid-template-columns:minmax(0,.5fr) minmax(0,1.5fr); gap:1.2vw; }
+.tv-shell[data-content-layout="compact"] .session-content, .tv-shell[data-content-layout="wide"] .session-content { padding:1vw; }
+.tv-shell[data-content-layout="wide"] .scoreboard { padding:1vw; }
+.tv-shell[data-content-layout="wide"] .timer-digits { font-size:clamp(72px,6vw,250px); }
+.tv-shell[data-content-layout="wide"] .timer-phase { font-size:clamp(16px,1vw,40px); margin:1vh 0; }
+.tv-shell[data-content-layout="wide"] .session-content h2 { font-size:clamp(24px,1.8vw,72px); }
+.tv-shell[data-content-excess="true"] .presentation-capacity-warning { align-self:start; font-size:clamp(18px,1.3vw,52px); }
+/* Excess content is explicitly blocked on the presentation, never silently clipped. */
+.presentation-full-text { margin:18px 0; padding:20px; border:1px solid #ad8538; }
+.presentation-full-text pre { white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:16px; line-height:1.6; margin-top:16px; }
+.presentation-check { margin:24px 0; }
+.presentation-check h3 { margin-bottom:12px; }
+.presentation-check-result { line-height:1.7; margin:16px 0; }
+.presentation-check[data-capacity="excess"] { border-color:#ad8538; }
+.presentation-check[data-capacity="excess"] .presentation-check-result { color:#ffdf9e; }
+.presentation-measure { position:fixed; left:-100000px; top:0; visibility:hidden; pointer-events:none; }
+.tv-shell[data-content-excess="true"] [data-content-pages], .coach-session[data-content-excess="true"] [data-content-pages] { display:none; }
+.tv-shell[data-content-excess="true"] .session-content, .coach-session[data-content-excess="true"] .session-content { grid-template-rows:auto auto auto minmax(0,1fr); }
+.tv-shell[data-content-excess="true"] .suggested-loads { display:none; }
+.coach-session[data-content-excess="true"] .session-board { height:auto; align-items:start; }
+.coach-session[data-content-excess="true"] .session-content { height:auto; min-height:360px; }

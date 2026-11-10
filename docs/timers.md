@@ -73,7 +73,7 @@ Offline: continuar apenas a projeção do snapshot já confirmado; bloquear coma
 
 `SoundSignals` cria AudioContext somente após clicar em Ativar sons. Osciladores senoidais originais sinalizam preparação/últimos segundos, início, trabalho, descanso, transição, finalização e cap. Mute suspende áudio. Não há mídia externa nem licença de terceiros. Ao voltar de suspensão, não toca uma sequência de sons atrasados.
 
-TV usa cores contrastantes, rótulos de estado, rounds e estação atual; sinais nunca dependem só de cor/áudio. `ContentPager` mede espaço disponível, divide texto e estações sem HTML cru, preserva conteúdo e recalcula em ResizeObserver. Páginas têm navegação e rotação controlável de 10 s. A tela principal ocupa 100dvh sem scroll; conteúdo extenso não é simplesmente cortado.
+TV usa cores contrastantes, rótulos de estado, rounds e estação atual; sinais nunca dependem só de cor/áudio. `AdaptiveContent` mede o espaço e grupos de instruções sem HTML cru, ajusta espaços/fontes/proporções e até duas colunas, recalculando em ResizeObserver. Não há paginação nem rotação automática. Conteúdo excessivo gera aviso explícito, nunca um recorte parcial silencioso. A tela principal ocupa 100dvh sem scroll; conteúdo extenso não é simplesmente cortado.
 
 ## Verificação
 
@@ -98,3 +98,10 @@ Uma revisão de conteúdo diferente não modifica timers de uma execução inici
 `timer_sessions.suggested_loads` guarda a cópia das cargas do bloco no momento da preparação. A API serializa `timers[].suggested_loads`; não acrescenta essas referências a `config`, nem interfere em segundos, ms ou projeção temporal. O painel e a TV exibem somente os níveis preenchidos do timer atual. Sem cargas, a seção desaparece e o paginador recupera o espaço. Trocar para técnica/aquecimento não reaproveita as cargas do principal.
 
 O source informa `modality_enabled`; `source.published` só habilita uma nova preparação/reinício quando a modalidade também está ativa. Desativar não interrompe sessão com atividade, mas bloqueia start/next/complete em preparação ainda pendente. Esses controles têm proteção no backend, além do estado de UI. Comandos obtêm lock na box antes da sessão; a política de lease, versões e idempotência permanece a mesma. Snapshots legados têm carga null e não recebem backfill de conteúdo atual.
+
+
+## Hotfix — etapas e formatos universais
+
+O motor executa a lista real de um a três timers, sem exigir principal ou etapas vazias. Todos os formatos do catálogo existente estão disponíveis em qualquer etapa/modalidade; estações também. Snapshot, versões, start/pause/resume, lease, idempotência e engine.js não mudaram. Defaults e validações de parâmetros vêm do TimerConfiguration; EMOM usa 60 s quando omitido. Publicar precisa de uma etapa com conteúdo e parâmetros válidos.
+
+Ver [hotfix](production-hotfix.md) para mínimos de fonte, leitura em colunas, conferência antes de executar e fallback explícito para conteúdo excessivo. O verificador não altera descrições. Um texto arbitrariamente grande não tem garantia física de exibição simultânea. Som físico continua exigindo homologação no equipamento real.

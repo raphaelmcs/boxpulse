@@ -126,14 +126,14 @@ class WorkoutManagementTest extends TestCase
     {
         return [
             'amrap duration' => ['crossfit', 'amrap', null, [], 'duration_seconds'],
-            'emom interval' => ['crossfit', 'emom', 600, [], 'timer_settings.interval_seconds'],
+            'emom interval' => ['crossfit', 'emom', 600, ['interval_seconds' => 'invalid'], 'timer_settings.interval_seconds'],
             'emom divisible' => ['crossfit', 'emom', 601, ['interval_seconds' => 60], 'timer_settings.interval_seconds'],
             'zero interval' => ['crossfit', 'emom', 600, ['interval_seconds' => 0], 'timer_settings.interval_seconds'],
             'tabata cycles' => ['functional', 'tabata', null, ['work_seconds' => 20, 'rest_seconds' => 10], 'timer_settings.rounds'],
             'interval work' => ['hyrox', 'interval', null, ['rest_seconds' => 20, 'rounds' => 4], 'timer_settings.work_seconds'],
             'negative rest' => ['functional', 'tabata', null, ['work_seconds' => 20, 'rest_seconds' => -1, 'rounds' => 4], 'timer_settings.rest_seconds'],
             'none duration' => ['functional', 'none', 90, [], 'duration_seconds'],
-            'unsupported format' => ['crossfit', 'tabata', null, ['work_seconds' => 20, 'rest_seconds' => 10, 'rounds' => 8], 'timer_type'],
+            'unknown format' => ['crossfit', 'unknown', null, ['work_seconds' => 20, 'rest_seconds' => 10, 'rounds' => 8], 'timer_type'],
             'circuit stations' => ['functional', 'circuit', null, ['work_seconds' => 30, 'rest_seconds' => 10, 'rounds' => 3], 'stations'],
         ];
     }

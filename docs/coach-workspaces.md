@@ -1,92 +1,64 @@
-# Proposta — ambientes de Gestão e Aula
+# Ambientes de Gestão e Aula — Fase 4
 
-Documento de preparação arquitetural da Fase 3.1. **A separação visual ainda não foi implementada.** O BOXPULSE continua em uma única aplicação Laravel, com a navegação atual e todas as rotas existentes operacionais.
+Implementados na mesma aplicação Laravel, banco, guard web e contexto de tenant. Não há segundo projeto ou editor duplicado. A proposta da Fase 3.1 foi usada como base; o requisito novo definiu a seleção de ambientes como primeira tela após autenticar.
 
-## Objetivo e fronteiras
+## Mapeamento e reutilização
 
-Gestão prepara o conteúdo: cadastrar/editar workouts, publicar, programar semanas, copiar aulas, consultar treinos anteriores, personalizar a box e futuramente gerenciar a equipe. Aula executa uma versão desse conteúdo: escolher treino publicado do dia, preparar ou retomar sessão, controlar timer, apresentar na TV e consultar o resumo.
-
-Workout representa o conteúdo cadastrado atual. WorkoutSession representa uma execução específica com snapshot e workout_version. O estado operacional usa outra numeração (`session.version`), destinada à concorrência, sem relação com `workout.content_version`. A interface deve mostrar claramente qual execução e versão foram selecionadas.
-
-Não duplicar modelos, autenticação, banco, motor de timers ou código de domínio para separar esses ambientes. Não criar um segundo projeto Laravel, guard de login ou dependência de frontend.
-
-## Reaproveitamento
-
-| Peça atual | Uso futuro |
+| Componente existente | Responsabilidade preservada |
 | --- | --- |
-| WorkoutController, WorkoutRequest, SaveWorkout, PublishWorkout | Gestão de treinos, mantendo conversão da entrada e revisão atômica |
-| ScheduleController, CopyWorkoutWeek, DuplicateWorkout | Agenda e cópias da Gestão |
-| BoxSettingsController, UpdateBoxSettings, BoxTheme | Identidade e tema compartilhados |
-| DashboardController e componentes de identidade | Base para seletor de treinos de hoje no ambiente de Aula |
-| PrepareWorkoutSession | Preparar/retomar/substituir pendentes com política de revisão |
-| WorkoutSessionController e SessionStateController | Controle, TV, histórico e resumo |
-| WorkoutSessionResource, ControlWorkoutSession, SessionState | Uma única fonte autoritativa, autorização, versões, lease e idempotência |
-| components/workouts | Formulários e revisão do conteúdo na Gestão |
-| components/sessions, views/sessions e resources/js/timers | Apresentação e operação da Aula, com o mesmo núcleo de tempo |
+| auth, LoginRequest, ResolveCurrentBox, policies | Username/senha, sessão regenerada, tenant antes dos bindings e autorização |
+| DashboardController, ScheduleController, WorkoutController | Gestão, programação, cadastro/edição e consulta |
+| SaveWorkout, PublishWorkout, DuplicateWorkout, CopyWorkoutWeek | Transações, revisão do agregado, publicação, cópias e unidades |
+| BoxSettingsController, BoxTheme e componentes Blade | Modalidades, logo raster, cores e contraste |
+| PrepareWorkoutSession | Uma preparação ativa por workout e snapshots versionados |
+| SessionState, ControlWorkoutSession, SessionStateController | Tempo autoritativo, locks, lease, idempotência, conflitos e restauração |
+| sessions/board, engine.js, session-app.js | Mesmo cronômetro para coach/TV, sem relógio paralelo |
 
-Extrair layouts de navegação a partir do atual `layouts/app`, preservando tema, logo, feedback, CSRF e links nomeados. TV continua com layout próprio sem menu administrativo, ocupando 100dvh. A composição visual não altera policies ou regras de negócio.
+Novos controllers `WorkspaceController` e `ClassroomController` compõem telas e chamam os serviços existentes. `ClassroomWorkouts` centraliza treinos publicados de hoje por modalidade ativa e normaliza sessões com o mesmo SessionState antes de mostrar sua situação. `WorkoutPresentation` formata referências de duração usando CompileTimer, inclusive circuitos/intervalados.
 
-## Organização proposta de rotas
+## Rotas e compatibilidade
 
-| Destino futuro | Responsabilidade | Rotas atuais reaproveitadas |
+| Rota | Nome | Uso |
 | --- | --- | --- |
-| `/manage/workouts/*` | Cadastro, edição, revisão e histórico de treinos | `/workouts/*` |
-| `/manage/schedule` | Programação e cópia semanal | `/schedule`, `/schedule/copy` |
-| `/manage/box/settings` | Identidade da box | `/box/settings` |
-| `/coach/today` | Seleção por modalidade/data no fuso da box | Consulta de treinos publicados do dashboard |
-| `/coach/sessions/*` | Preparação, controle, revisão de versão e resumo | `/sessions/*`, `/workouts/{id}/sessions` |
-| `/coach/sessions/{id}/tv` | Exibição de leitura | `/sessions/{id}/tv` |
+| `/workspace` | workspace | Seleção após login/cadastro |
+| `/manage` | manage.dashboard | Visão geral da Gestão |
+| `/dashboard` | dashboard | Entrada anterior preservada, mesmo controller/view |
+| `/coach` | coach.today | Aulas publicadas de hoje, filtros ativos e aulas em andamento |
+| POST `/coach/workouts/{workout}/prepare` | coach.prepare | Preparar/retomar e abrir resumo inicial |
+| `/coach/workouts/{workout}/sessions` | coach.history | Escolher/consultar execuções específicas de um treino |
+| `/coach/sessions/{session}/ready` | coach.ready | Snapshot, conteúdo, cargas e links TV/controle |
+| `/sessions/{session}/control` | sessions.control | Controle operacional, na mesma URL anterior |
+| `/sessions/{session}/tv` | sessions.tv | Apresentação sem menu administrativo |
+| `/sessions/{session}/summary` | sessions.summary | Encerramento e retorno ao Modo Aula |
 
-Nomes de rota podem ser agrupados em `management.*` e `classroom.*` gradualmente. Não migrar todos os nomes/URLs em um único deploy. URLs de estado/lease/comandos são geradas no servidor e entregues ao PollingTransport, evitando hardcode no JavaScript.
+CRUD `/workouts`, calendário `/schedule`, configurações `/box/settings`, histórico `/sessions` e endpoints de state/lease/commands/restart conservam todos os nomes e caminhos. POST/PUT/DELETE não são redirecionados para aliases com perda de corpo/método/CSRF. O endpoint antigo POST `/workouts/{workout}/sessions` continua chamando a mesma Action e redirecionando ao controle.
 
-As APIs de execução podem manter os caminhos atuais mesmo após a troca dos layouts. Rotas antigas devem continuar como aliases de controller durante a transição. Para GET, redirecionar somente após validar compatibilidade e medir uso. **Não redirecionar POST/PUT/DELETE por um fluxo que perca método, corpo ou CSRF**; preservar aliases executando a mesma action.
+Após autenticar, `/workspace` substitui o destino antigo `/dashboard`, inclusive quando havia intenção de abrir um bookmark. O link autenticado continua funcionando diretamente. Guest middleware e home também usam a seleção. Nenhum logout é necessário para alternar ambientes.
 
-Não incluir box_id escolhido pelo navegador nos novos prefixos. O tenant continua vindo do usuário autenticado.
+## Fluxo e navegação
 
-## Navegação sugerida
+1. Login/cadastro → escolha entre **Gerenciar treinos** e **Iniciar aula**, com logo/nome/cores/data da box.
+2. Gestão → visão geral, programação, novo treino, histórico, sessões anteriores e configurações admin-only. Dashboard conserva publicados, identifica drafts do dia e mostra próximos seis registros reais. Acesso de retorno à seleção e entrada no Modo Aula.
+3. Modo Aula → publicados da data civil da box. Filtros só para modalidades ativas, omitidos quando há uma. Cards mostram modalidade, título, composição real de etapas, formato/cap/duração e identificação da sessão. Não existe campo de horário agendado na modelagem atual; não inventar um.
+4. Preparar/continuar preparação → resumo do snapshot, abrir TV em nova aba ou ir ao controle. Nenhum timer ou lease é iniciado pela tela ready/TV.
+5. Controle → ações principais grandes, controles secundários recolhíveis e confirmações para reset/encerramento. Pode conduzir pela mesma tela ou abrir TV separada. Status escrito para conexão, espera, preparação, execução, pausa e encerramento.
+6. Encerrar → resumo, voltar às aulas ou iniciar outra, sem passar por formulários administrativos.
 
-1. Após login, entrar em Aula/Hoje, com identidade da box em destaque e treinos publicados por modalidade. Manter acesso claro a Gestão.
-2. Gestão: editar treino, salvar/publicar e revisar. Ao concluir, oferecer retornar à programação ou abrir o preparo da aula, sem iniciar cronômetros automaticamente.
-3. Aula: selecionar um treino específico quando houver vários; preparar sessão atual; iniciar etapa por clique; abrir TV em outra janela.
-4. Sessão pendente desatualizada gera uma nova preparação atual. Sessão com atividade preserva snapshot e oferece revisão/reinício explícito. Sessão finalizada é histórica e não é retomada como uma execução nova.
-5. Links de Gestão durante uma aula devem preservar o painel/TV e não enviar comandos. Preferir abrir revisão do treino em outra aba quando o coach estiver controlando uma sessão.
-6. Finalizar/cancelar leva a um resumo e permite voltar à seleção do dia. Não reaplicar comandos do histórico.
+Aulas com atividade, inclusive de outro dia ou modalidade recém-desativada, aparecem em uma seção de retomada explícita. Não ficam disponíveis como novos treinos dessa modalidade. Cada execução mostra número e horário no fuso da box. Histórico por treino permite abrir a execução correta, em vez de escolher arbitrariamente um registro antigo.
 
-Uma alternância visual Gestão/Aula deve indicar contexto sem exigir logout ou trocar a box silenciosamente.
+## Sessões e concorrência
 
-## Autenticação e autorização
+- Workout.content_version e WorkoutSession.version têm funções diferentes. Novas sessões capturam conteúdo; iniciadas preservam snapshot. Preparação pendente desatualizada é substituída conforme a Fase 3.1.
+- Unique `(box_id,active_workout_id)` e locks box → workout → sessão deduplicam pedidos simultâneos/repetidos. Ready/TV/control sempre referenciam o mesmo ID retornado pelo preparo.
+- Após histórico encerrado, uma nova preparação exige `new_session_confirmation` e `previous_session_id` da última execução, conferidos sob lock. Outro pedido da mesma rodada retoma a preparação criada; pedido atrasado depois de ela também encerrar é rejeitado. A regra também protege o endpoint antigo e o formulário administrativo ganhou a confirmação.
+- Abrir/recarregar controle ou TV não reinicia. BFCache recuperado força leitura nova da página. Outra aba de controle continua sujeita ao lease e takeover explícito; TV só lê. Fim impede comandos operacionais e mantém histórico.
+- A lista e o resumo inicial usam SessionState para reconhecer encerramento temporal automático, sem duplicar cálculo de tempo.
+- Modalidade desativada bloqueia novas preparações; uma aula com atividade pode continuar e concluir. Autorização e tenant independem do menu visível.
 
-Reutilizar login por username e sessão Laravel do guard web. Os dois ambientes e a TV compartilham a mesma autenticação e tenant, com CSRF, rate limits e middleware `auth`/`box` antes de bindings. Nenhuma alteração na chave primária ou nas relações dos usuários.
+## Homologação
 
-Policies continuam sendo a fronteira de permissão: admin configura a box; coach/admin gerenciam os treinos conforme regras atuais; responsável/admin controlam uma aula; outros coaches da box acompanham. Uma aba de TV não apresenta controles e não adquire lease. Ocultar um menu não substitui autorização no backend.
+Antes do hotfix subsequente, 169 testes PHP / 1.346 verificações passaram. A regressão final integrada também inclui essas funcionalidades. Chrome isolado validou login/escolha, Gestão, lista vazia, cadastro/publicação, ready, coach/TV, pausa/reload, offline, fullscreen, revisão preservada e histórico. Duas rodadas de oito POSTs simultâneos retornaram uma única sessão por rodada. TV Full HD e 4K sem rolagem. Nenhum teste escreveu no banco de produção.
 
-Uma segunda aba de controle mantém seu próprio client_id, acompanha o snapshot e requer takeover explícito. O layout novo não pode criar um relógio paralelo, mudar a versão do estado ou reduzir as verificações do servidor.
+Roteiro: entrar em `/workspace` → Gestão → cadastrar/publicar → retornar à seleção → Iniciar aula → Preparar → Abrir na TV e controle → iniciar/pausar/continuar/próxima etapa → finalizar com confirmação → resumo → Modo Aula. Repetir com um, dois e três blocos e com outra box. Para o layout adaptativo e etapas opcionais posteriores, consultar [hotfix local](production-hotfix.md).
 
-## Riscos de migração
-
-- Links salvos, janelas de TV abertas e consumidores de rotas antigas podem quebrar se caminhos ou nomes forem removidos cedo.
-- Misturar os contadores de versão do conteúdo e da execução pode invalidar comandos ou esconder mudanças de treino.
-- Carregar novamente componentes de aula por navegação visual não pode criar sessões duplicadas, resetar tempo ou ativar áudio automaticamente.
-- Novos formulários devem continuar convertendo minutos apenas na entrada; Actions e motor continuam em segundos/ms canônicos.
-- Qualquer editor futuro, inclusive Filament/Livewire, deve chamar SaveWorkout; gravações parciais diretas nos models podem deixar de incrementar a revisão do agregado.
-- Views e assets novos/antigos podem coexistir em abas abertas durante deploy. Manter o contrato de estado aditivo e as rotas antigas durante toda a janela de transição.
-- Tema/logo devem ser compartilhados sem duplicação excessiva de identidade; a navegação de Gestão não pode causar overflow na TV.
-
-## Plano sem interromper funcionalidades
-
-1. Mapear rotas nomeadas, links e fluxos existentes com testes. Manter contratos de payload e comandos.
-2. Extrair somente layouts/componentes de navegação, com ativação gradual por configuração. Não mover regras de negócio.
-3. Introduzir Aula/Hoje usando a mesma consulta de data/fuso/modalidade do dashboard. Preservar escolha explícita quando houver mais de um treino.
-4. Adicionar grupos de URLs novos como aliases, mantendo os caminhos atuais e um único conjunto de controllers/actions.
-5. Homologar em uma box de teste: login, tenant, CRUD, programação, versões, pending/running/finished, duas abas, TV/reload/offline, áudio/fullscreen e precisão.
-6. Ativar a navegação nova gradualmente, acompanhar logs e manter retorno ao layout anterior sem rollback destrutivo de schema/dados.
-7. Somente depois migrar links canônicos e discutir descontinuação de aliases com compatibilidade documentada.
-
-Essa evolução é uma próxima fase. A Fase 3.1 limita código às correções de consistência, unidades e identidade do dashboard.
-
-
-## Fase 4 — mapeamento da implementação
-
-Inspeção confirmou rotas web com auth/box antes de bindings, login por username, DashboardController, ScheduleController/calendário, WorkoutController/WorkoutDefinition/Actions, componentes de blocos/cargas, WorkoutSessionController e SessionStateController. PrepareWorkoutSession mantém lock box → workout → sessão e snapshot; SessionState/CompileTimer/engine.js preservam segundos/ms, versão otimista, lease e idempotência. Modalidades ativas vêm da relação Box::modalities(). Layout app/BoxTheme/CSS e board/paginador da TV serão reutilizados.
-
-Decisão da fase: seleção em /workspace após login, gestão em /manage com /dashboard compatível, CRUD/calendário/configuração nas URLs atuais, Modo Aula em /coach. Novas rotas de preparo/resumo inicial reutilizam a mesma Action e os snapshots; controle, estado, lease, comandos, TV e resumo mantêm os caminhos/nomes existentes. Não há outro guard, banco ou motor. A entrada após login difere da sugestão inicial deste documento por exigência explícita da Fase 4: primeiro escolher ambiente.
+Nenhuma migration foi necessária para a separação dos ambientes. A antiga proposta deixou de ser uma pendência; futuras evoluções devem reutilizar os contratos atuais.

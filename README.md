@@ -1,6 +1,6 @@
 # BOXPULSE
 
-Plataforma SaaS para preparar e apresentar aulas de CrossFit, HYROX e treinamento funcional pelo navegador. Implementação incremental: **Fase 3.2 — Cargas sugeridas e modalidades por box**, mantendo personalização, cronômetros e TV Mode. A execução, o controle do coach e a TV compartilham sessões persistentes e isoladas por box.
+Plataforma SaaS para preparar e apresentar aulas de CrossFit, HYROX e treinamento funcional pelo navegador. Implementação incremental: **Fase 4 + hotfix local — Ambientes, etapas opcionais e apresentação adaptativa**, mantendo personalização, cronômetros e TV Mode. A execução, o controle do coach e a TV compartilham sessões persistentes e isoladas por box.
 
 ## Entregue
 
@@ -92,7 +92,7 @@ Validação da Fase 2: **85 testes / 359 verificações no PHP 8.3 e no Sail PHP
 
 1. Entre como administrador e abra **Configurações da Box** (`/box/settings`). Salve nome, Head Coach, nome do administrador, fuso, cores e logo. A imagem aceita PNG/JPEG/WebP até 2 MB, sem cortes ou distorção.
 2. Abra um treino publicado e clique em **Iniciar apresentação**. Escolha preparação ou use a configuração de cada bloco. Avanço automático vem desabilitado; habilitá-lo autoriza iniciar os próximos blocos após finalizações temporais.
-3. No painel do coach, clique em **Iniciar etapa / aula**. Preparar a sessão não inicia a contagem. Use pausar, continuar, reiniciar com confirmação, anterior/próxima, finalizar etapa e finalizar/cancelar aula.
+3. No painel do coach, clique em **Iniciar etapa**. Preparar a sessão não inicia a contagem. Use pausar, continuar, reiniciar com confirmação, anterior/próxima, finalizar etapa e finalizar/cancelar aula.
 4. Abra **TV Mode** em outra janela/monitor. A TV só lê o estado. Clique em **Entrar em tela cheia** e, se desejar, **Ativar sons**. Esc ou o botão correspondente sai do fullscreen sem encerrar a aula.
 5. Recarregue a TV para verificar restauração. Desconecte/reconecte a rede: o relógio local continua calculando, mostra a desconexão e recebe o estado autoritativo ao reconectar. Comandos novos ficam bloqueados offline.
 6. Abra outra aba de controle: ela acompanha a mesma sessão sem controlar simultaneamente. **Assumir controle** transfere o lease explicitamente; a aba anterior perde seus controles.
@@ -122,7 +122,7 @@ A preparação usa a revisão publicada atual. Se houver preparação antiga ain
 
 O dashboard destaca logo, nome/Head Coach, data e ações de aula/programação, mantendo BOXPULSE no cabeçalho. Com vários treinos hoje, o usuário escolhe qual aula preparar.
 
-Migration aditiva: `2026_11_10_144718_add_workout_content_versions_to_sessions`. A proposta de separação futura de Gestão e Aula está em [coach-workspaces.md](docs/coach-workspaces.md); essa refatoração ainda não foi feita.
+Migration aditiva: `2026_11_10_144718_add_workout_content_versions_to_sessions`. A separação Gestão/Aula foi implementada posteriormente na Fase 4; consulte [coach-workspaces.md](docs/coach-workspaces.md).
 
 Validação da Fase 3.1: **130 testes PHP / 803 verificações**, incluindo criação/edição em minutos, segundos legados, cenários pending/running/finished, autorização/tenant e regressões anteriores; **16 testes Node** mantidos. Chrome reproduziu a troca Front Squat → Clean & Jerk e o fluxo de nova sessão/TV, além de identidade em três proporções e mobile. Detalhes em [roadmap](docs/roadmap.md) e [proposta de ambientes](docs/coach-workspaces.md).
 
@@ -136,3 +136,23 @@ No bloco principal de qualquer modalidade, **Cargas sugeridas** aceita equipamen
 Duas migrations aditivas aplicadas: `2026_11_10_153006_create_box_modalities_table` e `2026_11_10_153007_add_suggested_loads_to_workout_blocks_and_timer_sessions`. Sem reescrita de tempos ou histórico.
 
 Validação: **152 testes PHP / 1.089 verificações** em PHP 8.3 e Sail PHP 8.5, **16 testes Node**, build/Pint/Composer aprovados. Chrome conferiu onboarding, seleção/reativação, cargas por etapa, aula em execução após desativação e TV Full HD/QHD/4K. Consulte o [relatório e roteiro manual](docs/phase-3.2.md).
+
+
+## Fase 4 — Gestão e Modo Aula
+
+Após login/cadastro, `/workspace` oferece **Gerenciar treinos** e **Iniciar aula**. `/manage` reutiliza o dashboard e o CRUD/calendário existentes; `/dashboard` e todos os nomes/URLs anteriores continuam operacionais. `/coach` mostra publicados de hoje no fuso da box, filtros de modalidades ativas e retomada de aulas em andamento. O preparo abre um resumo de snapshot, com TV em outra aba e controle na mesma tela. Encerramento oferece resumo e retorno ao Modo Aula. Outra aula após histórico encerrado exige confirmação vinculada ao último ID; pedidos repetidos/simultâneos deduplicam a preparação.
+
+Sem novo banco, guard, projeto ou dependência. Mapa de rotas, reaproveitamento, sessões e roteiro em [Gestão/Aula](docs/coach-workspaces.md).
+
+## Hotfix local — TV, etapas opcionais e cronômetros
+
+Aula completa permite qualquer combinação ordenada de Aquecimento/Técnica/Principal, com pelo menos uma etapa preenchida para publicar. Etapas desabilitadas não são gravadas nem recriadas na edição. A remoção preenchida exige confirmação. Simplificado permanece somente principal.
+
+Os nove formatos pedidos estão disponíveis em todos os blocos/modalidades, mais `repetitions` legado. Registry central com rótulos, defaults, campos e regras. EMOM usa intervalo padrão 60 s. As durações principais permanecem em minutos no formulário, em segundos no banco e ms no compilador.
+
+TV sem paginação automática: mede conteúdo e espaço, ajusta densidade e timer e usa até duas colunas de instruções completas, preservando ordem. Mínimo de referência 22 px Full HD, escalado por resolução. Cadastro/preview/ready avisam sobre excesso e oferecem edição; se fisicamente não cabe, a TV apresenta aviso explícito em vez de ocultar uma parte como se estivesse completa. Texto integral continua preservado no banco e acessível no coach. Não há garantia para volume arbitrário de texto.
+
+Validação final do conjunto registrada no [relatório do hotfix](docs/production-hotfix.md) e [roadmap](docs/roadmap.md). Inclui formatos × etapas × modalidades, combinações de blocos, regressões, testes Node e Chrome Full HD/QHD/4K com 3/8/15/25 instruções e cargas. Sem migration nova, deploy Hostinger ou escrita no banco de produção. Comandos de homologação e preparação manual da release no relatório; não enviar `public/hot`.
+
+
+Validação final integrada: **284 testes PHP / 3.293 verificações em PHP 8.3 e Sail PHP 8.5; 27 testes JavaScript (16 timers + 11 apresentação). Build Vite, Pint, Composer, compilação Blade e diff check aprovados.**

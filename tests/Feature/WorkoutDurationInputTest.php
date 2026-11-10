@@ -95,7 +95,7 @@ class WorkoutDurationInputTest extends TestCase
     {
         $data = $this->minuteInput();
         unset($data['blocks'][0]['duration_extra_seconds']);
-        $data['blocks'][0]['description'] = null;
+        $data['blocks'][0]['description'] = str_repeat('x', 20001);
         $this->actingAs(User::factory()->create())->from(route('workouts.create'))->post(route('workouts.store'), $data)->assertSessionHasErrors('blocks.0.description');
         $this->get(route('workouts.create'))->assertOk()->assertSee('name="blocks[0][duration_minutes]" value="12"', false);
     }

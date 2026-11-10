@@ -79,3 +79,7 @@ Esta migration não altera duration_seconds, settings, snapshots, títulos ou da
 - `2026_11_10_153007_add_suggested_loads_to_workout_blocks_and_timer_sessions`: adiciona JSON nullable `suggested_loads` a blocos e timers. Exemplo: `{"equipment":"DB","rx":"22/16","intermediate":"20/14","scale":"18/12","unit":null}`. O ID do bloco já identifica a referência; não é necessário criar outra entidade para os cinco campos opcionais. Timer armazena cópia imutável; JSON não aceita IDs do cliente.
 
 Aplicadas via migrate, sem comandos destrutivos. Nenhum tempo, conteúdo, sessão antiga ou status de workout foi reescrito. As FKs compostas existentes de blocos/timers continuam preservando a origem do tenant. Desativação remove somente a habilitação do par da própria box, sem exclusão de modalidades ou dados de treino. Novas boxes persistem a seleção na mesma transação do administrador.
+
+## Fase 4 e hotfix de apresentação
+
+Não criam migrations. Gestão/Aula usam as mesmas tabelas. Nova aula após execução encerrada exige confirmação vinculada ao último ID, conferida sob locks existentes; nenhuma coluna adicional necessária. Etapas opcionais são somente linhas existentes de workout_blocks ordenadas e reindexadas. Atualizações continuam transacionais via SaveWorkout; snapshots de timer_sessions permanecem independentes e não são apagados ao remover uma etapa do workout atual. Descrições não são alteradas pelo layout adaptativo. Não houve acesso ao banco de produção nesta entrega.

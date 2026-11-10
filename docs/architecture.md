@@ -65,7 +65,7 @@ Validação: testes MySQL, regressão da autenticação/tenant, build/Pint e flu
 - ControlWorkoutSession: autorização, lease, locks, versões e idempotência; nunca confia em estado/tempo/configuração enviados pelo navegador.
 - WorkoutSessionResource: snapshot JSON com timestamps absolutos UTC, versão e permissões. Endpoint de estado normaliza fronteiras temporais e usa no-store.
 - engine.js/SessionClock: núcleo puro e relógio monotônico compartilhado por coach e TV. polling-transport.js: interface de transporte sem acoplar cálculo ao HTTP.
-- session-app.js: renderização, controles apenas após confirmação, polling/backoff, recuperação e lease de aba. content-pager.js: medição e páginas de texto seguro. sound-signals.js: áudio original após gesto.
+- session-app.js: renderização, controles apenas após confirmação, polling/backoff, recuperação e lease de aba. adaptive-content.js: medição, grupos seguros e colunas sem paginação, com aviso de excesso. sound-signals.js: áudio original após gesto.
 - sessions.control/tv/summary/index: operação, apresentação de leitura, histórico e resumo. O responsável e admins controlam; outros coaches da box acompanham.
 
 A TV não usa os templates administrativos e não contém comandos de execução. Essa distinção de interface não substitui a policy no servidor: um usuário responsável continua autorizado pela sua conta, enquanto um leitor não obtém controle alterando DOM ou requests. A autorização é por usuário/tenant e o lease coordena as abas desse usuário.
@@ -99,3 +99,12 @@ Dashboard consulta somente IDs habilitados, incluindo treinos publicados de hoje
 Desativação não altera workouts, blocos ou snapshots. Execução com atividade continua com pause/resume e troca de etapas; preparação ainda sem atividade não pode iniciar nem ser substituída enquanto inativa. A mesma execução iniciada pode ser retomada; preparar outra ou reiniciar com uma nova revisão exige modalidade ativa. Reativação recupera as operações existentes.
 
 `SuggestedLoads` normaliza um JSON opcional por bloco, usando equipment/rx/intermediate/scale/unit. Ausência de níveis normaliza null; o texto zero é válido. Apenas principal é permitido nesta fase. Equipamento até 80 e valores até 60 caracteres, sem controles; unidade opcional kg/lb. Campo omitido em edição preserva o valor anterior do mesmo tipo de bloco; null/vazio remove. Duplicação replica o atributo. A preparação copia para `TimerSession`, separada da configuração temporal. Publicação não exige cargas. Unidade acompanha apenas números isolados; não há parsing/conversão de pares ou descrições. Blade/textContent mantêm texto escapado. Coach/TV atualizam a seção ao trocar de timer e ocultam inteiramente se a etapa não tiver cargas.
+
+
+## Fase 4 e hotfix subsequente
+
+Ambientes implementados conforme [Gestão/Aula](coach-workspaces.md): novos controllers compõem seleção, aulas de hoje e ready sobre os mesmos serviços. Rotas antigas não foram removidas. Autenticação passa pela seleção; nenhuma segunda aplicação, schema ou instalação Livewire foi necessária.
+
+WorkoutDefinition aceita etapas opcionais ordenadas e remove blocos vazios no aggregate. TimerConfiguration é registro universal sem restrições de tipo de bloco/modalidade; CompileTimer continua produzindo a mesma versão/unidade de configuração. Cargas continuam associadas ao principal, enquanto estações são permitidas nos blocos que as utilizarem.
+
+AdaptiveContent substitui paginação no bundle: grupos escapados, ordem preservada, medição apenas em mudanças, tentativas limitadas de densidade/colunas e fonte mínima. Cadastro/preview/ready usam conferência conservadora por resolução; a TV mede a área real. Excesso gera aviso explícito e acesso ao conteúdo completo no coach, sem transformar a TV em área com scroll ou ocultar parte do treino sem aviso. Detalhes e comandos de homologação/deploy manual em [hotfix](production-hotfix.md).

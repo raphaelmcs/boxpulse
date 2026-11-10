@@ -2,6 +2,8 @@
 
 namespace App\Timers;
 
+use App\Workouts\TimerConfiguration;
+
 class CompileTimer
 {
     public function compile(array $block, ?int $preparation = null): array
@@ -12,11 +14,11 @@ class CompileTimer
         $free = in_array($type, ['none', 'repetitions'], true);
         $config = [
             'version' => 1, 'type' => $type,
-            'preparation_ms' => $free ? 0 : ($preparation ?? (int) ($settings['preparation_seconds'] ?? 10)) * 1000,
+            'preparation_ms' => $free ? 0 : ($preparation ?? (int) ($settings['preparation_seconds'] ?? TimerConfiguration::defaults()['preparation_seconds'])) * 1000,
             'duration_ms' => $duration,
             'direction' => $free ? 'none' : (in_array($type, ['countdown', 'amrap', 'emom', 'tabata', 'interval', 'circuit'], true) ? 'down' : 'up'),
             'limit_ms' => $free || ($type === 'for_time' && ! ($settings['stop_at_cap'] ?? true)) ? null : $duration,
-            'interval_ms' => (int) ($settings['interval_seconds'] ?? 60) * 1000,
+            'interval_ms' => (int) ($settings['interval_seconds'] ?? TimerConfiguration::defaults()['interval_seconds']) * 1000,
             'rounds' => (int) ($settings['rounds'] ?? 1), 'cycle_ms' => 0, 'segments' => [],
         ];
         if (! in_array($type, ['tabata', 'interval', 'circuit'], true)) {
