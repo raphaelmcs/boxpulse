@@ -25,3 +25,8 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Ambiente Python local - BoxPulse Performance
+.venv-ble/
+__pycache__/
+*.pyc
