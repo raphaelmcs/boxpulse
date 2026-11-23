@@ -23,8 +23,7 @@ class WorkoutSessionController extends Controller
 
     public function store(PrepareClassroomRequest $request, Workout $workout, PrepareWorkoutSession $prepare): RedirectResponse
     {
-        $options = $request->validated();
-        $session = $prepare->handle($request->user(), $workout, $options);
+        $session = $prepare->handle($request->user(), $workout, $request->sessionOptions());
 
         return to_route('sessions.control', $session);
     }

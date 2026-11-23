@@ -6,7 +6,9 @@
         "build": "vite build",
         "dev": "vite",
         "test:timers": "node tests/js/timer-engine.test.js",
-        "test:presentation": "node tests/js/adaptive-content.test.js"
+        "test:presentation": "node tests/js/adaptive-content.test.js",
+        "test:presentation:browser": "node tests/js/presentation-browser.test.js",
+        "test:editor": "node tests/js/workout-editor.test.js"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",

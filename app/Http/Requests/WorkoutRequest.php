@@ -14,6 +14,17 @@ class WorkoutRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if (in_array($this->input('editor_intent'), ['draft', 'preview', 'publish'], true)) {
+            $this->merge([
+                'editor_mode' => $this->input('editor_intent') === 'publish' ? 'publish' : 'draft',
+                'preview_after_save' => $this->input('editor_intent') === 'preview',
+            ]);
+        }
+        if ($this->input('editor_mode') === 'draft') {
+            $this->merge(['status' => 'draft']);
+        } elseif ($this->input('editor_mode') === 'publish') {
+            $this->merge(['status' => 'published']);
+        }
         $blocks = $this->input('blocks');
         if (! is_array($blocks)) {
             return;
@@ -34,7 +45,16 @@ class WorkoutRequest extends FormRequest
 
     public function workoutData(): array
     {
-        return app(WorkoutDurationInput::class)->canonical($this->validated());
+        return app(WorkoutDurationInput::class)->canonical($this->safe()->except(['editor_mode', 'expected_edit_version', 'editor_write_id']));
+    }
+
+    public function editorWrite(): ?array
+    {
+        if (! $this->has('editor_mode')) {
+            return null;
+        }
+
+        return ['version' => (int) $this->validated('expected_edit_version'), 'write_id' => $this->validated('editor_write_id')];
     }
 
     public function authorize(): bool
@@ -47,9 +67,13 @@ class WorkoutRequest extends FormRequest
     public function rules(WorkoutDefinition $definition): array
     {
         $rules = $definition->rules($this->all());
-        $rules['blocks.*'] = ['array:type,title,description,notes,timer_type,timer_settings,duration_seconds,duration_minutes,duration_extra_seconds,suggested_loads,stations'];
+        $rules['blocks.*'] = ['array:type,title,description,notes,timer_type,timer_settings,duration_seconds,duration_minutes,duration_extra_seconds,suggested_loads,load_entries,text_style,stations'];
         $rules['blocks.*.duration_minutes'] = ['nullable', 'integer', 'min:0', 'max:1440'];
         $rules['blocks.*.duration_extra_seconds'] = ['nullable', 'integer', 'min:0', 'max:59'];
+
+        $rules['editor_mode'] = ['sometimes', 'in:draft,publish'];
+        $rules['expected_edit_version'] = ['required_with:editor_mode', 'integer', $this->route('workout') ? 'min:1' : 'in:0'];
+        $rules['editor_write_id'] = ['required_with:editor_mode', 'uuid'];
 
         return $rules;
     }
@@ -59,12 +83,6 @@ class WorkoutRequest extends FormRequest
         return [function (Validator $validator): void {
             foreach ($this->ambiguousDurations as $index) {
                 $validator->errors()->add("blocks.$index.duration_minutes", 'Envie a duração em minutos ou em segundos, sem misturar as duas entradas.');
-            }
-            if (! $validator->errors()->has('training_modality_id')) {
-                $workout = $this->route('workout');
-                if ((! $workout || $this->input('status') === 'published' || (int) $this->input('training_modality_id') !== $workout->training_modality_id) && ! $this->user()->box->offersModality((int) $this->input('training_modality_id'))) {
-                    $validator->errors()->add('training_modality_id', 'Modalidade desativada. Reative-a nas Configurações da Box.');
-                }
             }
             app(WorkoutDefinition::class)->checkStructure($validator);
         }];

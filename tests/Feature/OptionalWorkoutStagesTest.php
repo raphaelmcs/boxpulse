@@ -47,7 +47,7 @@ class OptionalWorkoutStagesTest extends TestCase
         $this->get(route('workouts.edit', $workout))->assertOk();
         $this->get(route('sessions.tv', $state['id']))->assertOk();
         $this->getJson(route('sessions.state', $state['id']))->assertOk()->assertJsonCount(count($types), 'data.timers');
-        $this->command($state, 'finish')->assertOk()->assertJsonPath('data.status', 'completed');
+        $this->command($this->completeLastStage($state), 'finish')->assertOk()->assertJsonPath('data.status', 'completed');
     }
 
     public function test_empty_stages_are_not_persisted_and_publication_requires_content(): void

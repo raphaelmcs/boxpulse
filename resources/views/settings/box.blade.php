@@ -24,4 +24,37 @@
 </div>
 <aside class="identity-preview" data-identity-preview><p class="eyebrow">PRÉVIA DA IDENTIDADE</p><img class="settings-logo" data-logo-preview @if($box->logo_path) src="{{ route('box.logo') }}" @else hidden @endif alt="Prévia da logo da box"><h2 data-box-name-preview>{{ $box->name }}</h2><p class="muted">A energia da sua box em cada tela.</p><div class="identity-timer">12:45</div><div class="identity-progress"><span></span></div><span class="identity-tag">ETAPA ATIVA · WORKOUT</span><button class="primary-button" type="button">Sua próxima evolução ↗</button><p class="input-hint">O contraste dos textos é ajustado automaticamente. As mudanças são aplicadas após salvar.</p></aside>
 </form>
+<section class="form-panel form-stack box-tv-settings" aria-labelledby="box-tv-settings-title">
+    <h2 id="box-tv-settings-title">TV do Box</h2>
+    <p class="muted">Abra o link no navegador da televisão. A tela acompanha a aula iniciada pelo coach e o link funciona sem login.</p>
+    @if($tvLink)
+        <label>Link exclusivo da televisão
+            <input type="url" value="{{ $tvLink }}" readonly data-box-tv-link>
+        </label>
+        <div class="button-row">
+            <button type="button" class="secondary-button compact" data-copy-box-tv>Copiar link</button>
+            <a class="primary-button compact" href="{{ $tvLink }}" target="_blank" rel="noopener noreferrer">Abrir TV ↗</a>
+        </div>
+        <p class="input-hint" data-box-tv-copy-feedback role="status" hidden></p>
+        <div class="box-tv-presence" data-box-tv-presence="{{ route('box.tv.presence') }}">
+            <strong data-tv-online>{{ $tvPresence['online'] ? 'TV conectada' : 'Sem comunicação recente da TV' }}</strong>
+            <span class="input-hint" data-tv-last-seen>{{ $tvPresence['last_seen_at'] ? 'Última comunicação em '.$tvPresence['last_seen_at'] : 'Aguardando a primeira comunicação.' }}</span>
+        </div>
+        <details class="form-stack">
+            <summary>Gerar novo link</summary>
+            <form method="POST" action="{{ route('box.tv.rotate') }}" class="form-stack">
+                @csrf
+                <p>O link anterior será revogado. Reconecte as televisões usando o novo endereço.</p>
+                <label class="checkbox-label"><input name="confirmation" type="checkbox" value="1" required>Confirmo a substituição do link.</label>
+                <button class="secondary-button compact" type="submit">Gerar novo link</button>
+            </form>
+        </details>
+    @else
+        <form method="POST" action="{{ route('box.tv.rotate') }}">
+            @csrf
+            <button class="primary-button compact" type="submit">Gerar link da TV</button>
+        </form>
+    @endif
+</section>
+<x-workouts.load-library :is-admin="true" :management="true" />
 @endsection

@@ -63,6 +63,7 @@ class PrepareWorkoutSession
                     throw ValidationException::withMessages(['new_session_confirmation' => 'Esta aula já tem uma sessão encerrada. Atualize a lista e confirme a criação de uma nova sessão.']);
                 }
             }
+            $options += $locked->presentation_options ?? [];
             $definition = app(WorkoutDefinition::class);
             $data = $definition->validate($definition->fromWorkout($locked));
             if ($existing) {
@@ -89,6 +90,8 @@ class PrepareWorkoutSession
                 $timer->notes = $block['notes'] ?? null;
                 $timer->timer_type = $block['timer_type'];
                 $timer->suggested_loads = $block['suggested_loads'] ?? null;
+                $timer->load_entries = $block['load_entries'] ?? null;
+                $timer->text_style = $block['text_style'] ?? null;
                 $timer->stations_snapshot = $block['stations'] ?? [];
                 $timer->config = app(CompileTimer::class)->compile($block, $session->preparation_override);
                 $timer->save();

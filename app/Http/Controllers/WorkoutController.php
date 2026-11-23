@@ -8,6 +8,7 @@ use App\Http\Requests\WorkoutRequest;
 use App\Models\TrainingModality;
 use App\Models\Workout;
 use App\Workouts\WorkoutDefinition;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -34,16 +35,19 @@ class WorkoutController extends Controller
         $data = $request->validate(['modality' => ['nullable', 'exists:training_modalities,slug'], 'structure' => ['nullable', 'in:full,main'], 'date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2100-12-31']]);
         $modalities = $request->user()->box->modalities()->orderBy('training_modalities.id');
         $modality = isset($data['modality']) ? $modalities->where('slug', $data['modality'])->firstOrFail() : $modalities->firstOrFail();
-        $form = ['training_modality_id' => $modality->id, 'structure' => $data['structure'] ?? 'main', 'scheduled_for' => $data['date'] ?? now($request->user()->box->timezone)->toDateString(), 'status' => 'draft'];
+        $form = ['training_modality_id' => $modality->id, 'structure' => $data['structure'] ?? 'full', 'scheduled_for' => $data['date'] ?? now($request->user()->box->timezone)->toDateString(), 'status' => 'draft'];
 
         return view('workouts.form', ['box' => $request->user()->box, 'workout' => null, 'form' => $form, 'modality' => $modality]);
     }
 
-    public function store(WorkoutRequest $request, SaveWorkout $save): RedirectResponse
+    public function store(WorkoutRequest $request, SaveWorkout $save): RedirectResponse|JsonResponse
     {
-        $workout = $save->handle($request->user(), $request->workoutData());
+        $workout = $save->handle($request->user(), $request->workoutData(), editor: $request->editorWrite());
+        if ($request->editorWrite() && $request->expectsJson()) {
+            return $this->editorResponse($workout);
+        }
 
-        return to_route($request->boolean('preview_after_save') ? 'workouts.preview' : 'workouts.show', $workout)->with('success', 'Treino salvo com sucesso.');
+        return to_route($request->boolean('preview_after_save') ? 'workouts.preview' : 'workouts.show', ['workout' => $workout, 'draft' => $request->boolean('preview_after_save') && $workout->hasUnpublishedChanges() ? 1 : null])->with('success', 'Treino salvo com sucesso.');
     }
 
     public function edit(Request $request, Workout $workout, WorkoutDefinition $definition): View
@@ -51,14 +55,17 @@ class WorkoutController extends Controller
         Gate::authorize('update', $workout);
         $workout->load('blocks.stations', 'modality');
 
-        return view('workouts.form', ['box' => $request->user()->box, 'workout' => $workout, 'form' => $definition->fromWorkout($workout), 'modality' => $workout->modality]);
+        return view('workouts.form', ['box' => $request->user()->box, 'workout' => $workout, 'form' => $definition->forEditing($workout), 'modality' => TrainingModality::findOrFail($workout->editor_draft['training_modality_id'] ?? $workout->training_modality_id)]);
     }
 
-    public function update(WorkoutRequest $request, Workout $workout, SaveWorkout $save): RedirectResponse
+    public function update(WorkoutRequest $request, Workout $workout, SaveWorkout $save): RedirectResponse|JsonResponse
     {
-        $updated = $save->handle($request->user(), $request->workoutData(), $workout);
+        $updated = $save->handle($request->user(), $request->workoutData(), $workout, $request->editorWrite());
+        if ($request->editorWrite() && $request->expectsJson()) {
+            return $this->editorResponse($updated);
+        }
 
-        return to_route($request->boolean('preview_after_save') ? 'workouts.preview' : 'workouts.show', $updated)->with('success', 'Treino atualizado com sucesso.');
+        return to_route($request->boolean('preview_after_save') ? 'workouts.preview' : 'workouts.show', ['workout' => $updated, 'draft' => $request->boolean('preview_after_save') && $updated->hasUnpublishedChanges() ? 1 : null])->with('success', 'Treino atualizado com sucesso.');
     }
 
     public function show(Request $request, Workout $workout): View
@@ -66,6 +73,19 @@ class WorkoutController extends Controller
         Gate::authorize('view', $workout);
 
         return view('workouts.show', ['box' => $request->user()->box, 'workout' => $workout->load('modality', 'blocks.stations')]);
+    }
+
+    private function editorResponse(Workout $workout): JsonResponse
+    {
+        return response()->json([
+            'version' => $workout->edit_version,
+            'published' => $workout->status === 'published',
+            'has_draft' => $workout->hasUnpublishedChanges(),
+            'schedule_url' => route('schedule', ['date' => $workout->scheduled_for->toDateString()]),
+            'update_url' => route('workouts.update', $workout),
+            'edit_url' => route('workouts.edit', $workout),
+            'preview_url' => route('workouts.preview', ['workout' => $workout, 'draft' => $workout->hasUnpublishedChanges() ? 1 : null]),
+        ]);
     }
 
     public function destroy(Request $request, Workout $workout, DeleteWorkout $delete): RedirectResponse

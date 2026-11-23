@@ -5,17 +5,26 @@ namespace App\Http\Controllers;
 use App\Actions\UpdateBoxSettings;
 use App\Http\Requests\UpdateBoxSettingsRequest;
 use App\Models\TrainingModality;
+use App\Support\BoxTvLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
+use Illuminate\Http\Response;
 
 class BoxSettingsController extends Controller
 {
-    public function edit(Request $request): View
+    public function edit(Request $request): Response
     {
         abort_unless($request->user()->role === 'admin', 403);
 
-        return view('settings.box', ['box' => $request->user()->box, 'timezones' => timezone_identifiers_list(), 'modalities' => TrainingModality::orderBy('id')->get()]);
+        $box = $request->user()->box()->firstOrFail();
+
+        return response()->view('settings.box', [
+            'box' => $box,
+            'timezones' => timezone_identifiers_list(),
+            'modalities' => TrainingModality::orderBy('id')->get(),
+            'tvLink' => BoxTvLink::url($box),
+            'tvPresence' => BoxTvLink::presence($box),
+        ], headers: ['Cache-Control' => 'private, no-store', 'Referrer-Policy' => 'no-referrer']);
     }
 
     public function update(UpdateBoxSettingsRequest $request, UpdateBoxSettings $update): RedirectResponse

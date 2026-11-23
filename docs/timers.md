@@ -26,7 +26,7 @@ O compilador produz version=1, preparation_ms, duration_ms, limit_ms, direction,
 
 Intervalados encerram **ao fim do último trabalho do último round**, sem descanso/transição final. Descanso/transição continuam entre estações e rounds anteriores. Segmentos de duração zero são omitidos. EMOM muda de round exatamente no intervalo. FOR TIME sem limite requer finalização manual.
 
-Preparação vem do bloco (padrão 10 s) ou de override explícito da sessão, 0–60 s. A interface oferece 0/3/5/10/15 e herança por bloco. Blocos sem tempo não executam preparação temporal. Pausa congela também uma preparação parcialmente decorrida.
+Na preparação de uma nova aula, **Por etapa** usa a contagem do bloco (padrão de 10 s). O coach pode escolher 0, 10, 20 ou 30 s, ou personalizar entre 0 e 60 s. Uma escolha geral substitui as contagens dos blocos cronometrados da sessão. Etapas livres dispensam contagem. Pausa congela também uma preparação parcialmente decorrida.
 
 ## Tempo e restauração
 
@@ -55,7 +55,7 @@ Estado da aula: active → completed/cancelled. Estado de cada timer:
 
 Next completa a etapa atual e seleciona a seguinte; ela fica parada, salvo avanço **temporal** automático explicitamente habilitado. Previous pausa uma etapa em execução antes de voltar. Uma etapa já finalizada permanece finalizada ao revisitá-la; use reiniciar com confirmação para executá-la de novo. Voltar não dispara novamente o avanço automático de uma conclusão já processada.
 
-Por padrão, terminar o timer deixa a aula ativa para o coach escolher a próxima etapa ou finalizar. Com auto_advance=true, cada fim temporal inicia o próximo bloco na hora real de conclusão anterior, incluindo sua preparação; polling após suspensão pode recuperar mais de uma fronteira. No último bloco, encerra a aula. Blocos livres exigem intervenção manual.
+Terminar o cronômetro deixa a aula ativa. Com avanço automático, o fim temporal de uma etapa intermediária inicia a próxima na hora real da conclusão anterior, incluindo sua preparação. O polling após suspensão pode recuperar mais de uma fronteira. Na última etapa concluída, o coach usa **Finalizar aula**. Etapas livres e cronômetros sem limite podem ser concluídos pelo botão **Finalizar etapa**. Veja o [fluxo de finalização](library-v3-and-class-completion.md).
 
 ## Concorrência e sincronização
 
@@ -105,3 +105,17 @@ O source informa `modality_enabled`; `source.published` só habilita uma nova pr
 O motor executa a lista real de um a três timers, sem exigir principal ou etapas vazias. Todos os formatos do catálogo existente estão disponíveis em qualquer etapa/modalidade; estações também. Snapshot, versões, start/pause/resume, lease, idempotência e engine.js não mudaram. Defaults e validações de parâmetros vêm do TimerConfiguration; EMOM usa 60 s quando omitido. Publicar precisa de uma etapa com conteúdo e parâmetros válidos.
 
 Ver [hotfix](production-hotfix.md) para mínimos de fonte, leitura em colunas, conferência antes de executar e fallback explícito para conteúdo excessivo. O verificador não altera descrições. Um texto arbitrariamente grande não tem garantia física de exibição simultânea. Som físico continua exigindo homologação no equipamento real.
+
+
+## Editor V2 e apresentações
+
+Autosave de um treino publicado mantém a revisão utilizada na aula. Após republicar, novas preparações capturam estilos de título, linhas e estações e cargas por bloco. Configurações legadas de contagem e avanço automático servem como valores iniciais no fluxo de preparação. As escolhas do coach são gravadas com a nova sessão. Uma preparação reutilizada ou uma sessão em andamento mantém o snapshot. `AdaptiveContent` leva o peso da fonte em conta ao medir as linhas, mantém a ordem e mostra aviso de excesso se texto, título e cargas superarem o espaço.
+
+
+## Prévia da TV e tela compartilhada
+
+`PresentationBoard` desenha o mesmo cronômetro, etapas, título, instruções e cargas nos painéis de aula e na prévia. O cronômetro real mantém o estado e a projeção de `SessionClock`. O modal **Visualizar na TV** usa o relógio parado e os campos atuais do formulário. A prévia mede uma composição 16:9 de referência e a TV 35/65 se dimensiona pela própria janela. Testes de navegador comparam fonte, geometria e conteúdo no [guia do Editor V2](workout-editor-v2.md).
+
+A [TV do Box](tv-do-box.md) também usa `PresentationBoard`, `PollingTransport` e `SessionClock`. As fronteiras temporais passam pelo mesmo `SessionState`, inclusive quando só a TV está consultando o servidor. As leituras condicionais atualizam a âncora do relógio mesmo sem reenviar o snapshot.
+
+A [apresentação das cargas V3.1](library-v3-and-class-completion.md#apresentação-das-cargas-v31) posiciona os cards abaixo do cronômetro. A área de exercícios tem medição independente. O painel troca as referências a partir do snapshot da etapa selecionada.

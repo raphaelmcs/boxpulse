@@ -15,6 +15,6 @@ class CopyWeekRequest extends FormRequest
 
     public function rules(): array
     {
-        return ['source_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2100-12-24'], 'target_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2100-12-24'], 'conflict_policy' => ['required', Rule::in(['abort', 'append'])], 'confirmation' => ['accepted']];
+        return ['source_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2100-12-24'], 'target_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2100-12-24'], 'conflict_policy' => ['required', Rule::in(['abort', 'append'])], 'confirmation' => ['accepted'], 'modality' => ['nullable', 'exists:training_modalities,slug']];
     }
 }

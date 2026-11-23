@@ -46,7 +46,7 @@ class ClassroomController extends Controller
 
     public function prepare(PrepareClassroomRequest $request, Workout $workout, PrepareWorkoutSession $prepare): RedirectResponse
     {
-        $session = $prepare->handle($request->user(), $workout, $request->validated());
+        $session = $prepare->handle($request->user(), $workout, $request->sessionOptions());
 
         return to_route('coach.ready', $session)->with('success', $session->hasExecutionActivity() ? 'Aula recuperada. O conteúdo e o tempo foram preservados.' : 'Aula preparada. O cronômetro aguarda o comando do coach.');
     }

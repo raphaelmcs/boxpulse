@@ -21,5 +21,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('session-commands', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->id.'|'.$request->ip()));
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         RateLimiter::for('registration', fn (Request $request) => Limit::perMinute(6)->by($request->ip()));
+        RateLimiter::for('box-tv-open', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
+        RateLimiter::for('box-tv-state', fn (Request $request) => Limit::perMinute(360)->by($request->ip()));
+        RateLimiter::for('box-tv-logo', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
+        RateLimiter::for('box-tv-rotate', fn (Request $request) => Limit::perMinute(6)->by($request->user()->id));
     }
 }

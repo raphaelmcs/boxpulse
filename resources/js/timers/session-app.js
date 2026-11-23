@@ -1,21 +1,17 @@
-import { SessionClock, formatTime } from './engine.js';
+import { SessionClock } from './engine.js';
 import { PollingTransport } from './polling-transport.js';
-import { AdaptiveContent } from './adaptive-content.js';
 import { SoundSignals } from './sound-signals.js';
-
-const phases={idle:'Pronto para começar',preparation:'Preparação',work:'Em execução',rest:'Descanso',transition:'Transição',completed:'Etapa finalizada',cancelled:'Aula cancelada'};
-const states={idle:'Aguardando o coach',preparing:'Contagem de preparação',running:'Em execução',paused:'Pausado',completed:'Etapa finalizada',cancelled:'Cancelado'};
-const blocks={warmup:'Warm-up / Aquecimento',skill:'Técnica / Força',workout:'Workout principal'};
-const text=(node,value)=>{ if(node && node.textContent!==String(value)) node.textContent=String(value); };
+import {PresentationBoard, setText as text} from './presentation-board.js';
 
 export class SessionApp {
     constructor(root) {
         this.root=root;
         this.control=root.dataset.view==='control';
-        this.client=crypto.randomUUID();
+        this.publicTv=root.dataset.view==='box-tv';
+        this.client=this.control ? crypto.randomUUID() : null;
         this.transport=new PollingTransport(root);
         this.clock=new SessionClock();
-        this.presentation=new AdaptiveContent(root);
+        this.board=new PresentationBoard(root);
         this.sounds=new SoundSignals(root.querySelector('[data-audio-toggle]'));
         this.online=false;
         this.authorized=true;
@@ -25,7 +21,7 @@ export class SessionApp {
         this.lastRenewal=-Infinity;
         this.interval=Math.max(500,Number(root.dataset.pollMs)||1000);
         this.elements={};
-        for(const name of ['timer-format','round','phase-label','timer-digits','timer-state','current-station','progress','progress-bar','duration-label','total-remaining','block-label','block-title','session-stages','sync-status','session-feedback','ownership-label','claim-control','live-clock','live-date','live-box-name','live-logo']) this.elements[name]=root.querySelector(`[data-${name}]`);
+        for(const name of ['sync-status','session-feedback','ownership-label','claim-control','live-clock','live-date','live-box-name','live-logo']) this.elements[name]=root.querySelector(`[data-${name}]`);
         root.querySelectorAll('[data-session-command]').forEach((button)=>button.addEventListener('click',()=>this.send(button.dataset.sessionCommand)));
         this.elements['claim-control']?.addEventListener('click',()=>this.claim(true));
         this.fullscreen=root.querySelector('[data-fullscreen]');
@@ -37,19 +33,26 @@ export class SessionApp {
         });
         document.addEventListener('fullscreenchange',()=>text(this.fullscreen,document.fullscreenElement?'Sair da tela cheia (Esc)':'Entrar em tela cheia'));
         window.addEventListener('online',()=>this.pollNow());
+        window.addEventListener('offline',()=>{if (!this.publicTv || this.authorized) this.network(false);});
+        if (this.publicTv) window.addEventListener('hashchange', () => window.location.reload());
         document.addEventListener('visibilitychange',()=>{if(!document.hidden)this.pollNow();});
         window.addEventListener('pageshow',(event)=>{if(event.persisted)window.location.reload();});
-        window.addEventListener('pagehide',()=>{this.stopped=true;clearTimeout(this.timeout);cancelAnimationFrame(this.frame);});
-        this.poll();
+        window.addEventListener('pagehide',()=>{this.stopped=true;clearTimeout(this.timeout);cancelAnimationFrame(this.frame);this.board.content.destroy();this.clearLogo();});
+        if (this.publicTv && !this.transport.token) this.unavailable();
+        else this.poll();
         this.renderFrame();
     }
     feedback(message) { text(this.elements['session-feedback'],message); }
     network(online) {
         this.online=online;
         this.root.dataset.online=String(online);
-        text(this.elements['sync-status'],online?'● Sincronizado':'● Sem conexão · aguardando reconexão');
+        text(this.elements['sync-status'],online?'● Sincronizado':'● Sem conexão · tentando reconectar');
     }
     accept(result) {
+        if (this.publicTv) {
+            this.acceptPublicTv(result);
+            return;
+        }
         this.network(true);
         if([401,403,404,419].includes(result.status)) {
             this.authorized=false;
@@ -57,12 +60,97 @@ export class SessionApp {
         }
         if(result.payload.data && this.clock.accept(result.payload.data,result.sentAt,result.receivedAt)) this.updateSnapshot();
     }
+    setPublicStatus(status) {
+        const messages = {
+            waiting: 'Aguardando o coach iniciar a aula',
+            ended: 'Aula encerrada',
+            unavailable: 'Sessão indisponível',
+        };
+        this.root.dataset.tvStatus = status;
+        this.root.querySelector('[data-box-tv-waiting]').hidden = status === 'active';
+        text(this.root.querySelector('[data-box-tv-message]'), messages[status] ?? '');
+        if (status !== 'active') {
+            this.clock.snapshot = null;
+            this.blockId = null;
+            delete this.root.dataset.phase;
+            delete this.root.dataset.timerState;
+            delete this.root.dataset.sessionStatus;
+            text(this.root.querySelector('[data-screen-title]'), '');
+        }
+    }
+    unavailable() {
+        this.authorized = false;
+        this.setPublicStatus('unavailable');
+        this.publicBox = null;
+        this.syncLogo(null);
+        document.body.style.cssText = '';
+        this.timeFormat = null;
+        this.root.dataset.online = 'false';
+        text(this.elements['live-box-name'], 'BoxPulse');
+        text(this.elements['live-clock'], '--:--:--');
+        text(this.elements['live-date'], '');
+        text(this.root.querySelector('[data-screen-modality]'), '');
+        text(this.elements['sync-status'], 'Abra o link atualizado da TV.');
+    }
+    acceptPublicTv(result) {
+        if (result.status === 404) {
+            this.unavailable();
+            return;
+        }
+        if ((!result.ok && result.status !== 304) || !(result.serverTime > 0)) {
+            this.network(false);
+            return;
+        }
+        this.network(true);
+        const {sentAt, receivedAt, serverTime} = result;
+        this.clock.syncServerTime(serverTime, sentAt, receivedAt);
+        if (result.status === 304) {
+            if (this.clock.snapshot) this.clock.accept({...this.clock.snapshot, server_time_ms: serverTime}, sentAt, receivedAt);
+        } else {
+            const {box, data, status} = result.payload;
+            this.publicBox = box;
+            this.setPublicStatus(status);
+            this.updateBox(box);
+            text(this.root.querySelector('[data-screen-modality]'), box.modality ?? '');
+            text(this.root.querySelector('[data-screen-title]'), data?.title ?? '');
+            if (data && this.clock.accept({...data, server_time_ms: serverTime}, sentAt, receivedAt)) this.updateSnapshot();
+        }
+        this.syncLogo(this.publicBox?.logo_version);
+    }
+    clearLogo() {
+        if (!this.logoObjectUrl) return;
+        URL.revokeObjectURL(this.logoObjectUrl);
+        this.logoObjectUrl = null;
+        this.elements['live-logo'].hidden = true;
+        this.elements['live-logo'].removeAttribute('src');
+    }
+    async syncLogo(version) {
+        if (version !== this.logoVersion) {
+            this.logoVersion = version;
+            this.clearLogo();
+        }
+        if (!version || this.logoObjectUrl || this.loadingLogo) return;
+        this.loadingLogo = true;
+        try {
+            const {payload: image} = await this.transport.readLogo();
+            if (version !== this.logoVersion || this.stopped || !image || !/^image\/(png|jpeg|webp)$/i.test(image.type)) return;
+            this.logoObjectUrl = URL.createObjectURL(image);
+            this.elements['live-logo'].src = this.logoObjectUrl;
+            this.elements['live-logo'].hidden = false;
+        } catch {
+            // The next successful poll can retry the logo.
+        } finally {
+            this.loadingLogo = false;
+        }
+    }
     updateSnapshot() {
         const snapshot=this.clock.snapshot;
         const timer=snapshot.timers[snapshot.current_position];
         this.root.dataset.sessionStatus=snapshot.status;
         const ended=this.root.querySelector('[data-session-ended]');
         if(ended)ended.hidden=snapshot.status==='active';
+        const activeControls = this.root.querySelector('[data-session-active]');
+        if (activeControls) activeControls.hidden = snapshot.status !== 'active';
         const notice=this.root.querySelector('[data-source-notice]');
         if(notice && snapshot.source) {
             const source=snapshot.source;
@@ -86,48 +174,25 @@ export class SessionApp {
         }
         if(this.blockId!==timer.id) {
             this.blockId=timer.id;
-            const loads=timer.suggested_loads;
-            const section=this.root.querySelector('[data-suggested-loads]');
-            if(section) {
-                section.hidden=!loads || !['rx','intermediate','scale'].some((key)=>loads[key]!==null && loads[key]!==undefined && loads[key]!=='');
-                text(section.querySelector('[data-load-equipment]'),loads?.equipment || '');
-                section.querySelectorAll('[data-load-level]').forEach((card)=>{
-                    const value=loads?.[card.dataset.loadLevel];
-                    card.hidden=value===null || value===undefined || value==='';
-                    text(card.querySelector('[data-load-value]'),value!==null && value!==undefined ? `${value}${loads?.unit && /^[0-9]+(?:[.,][0-9]+)?$/.test(value)?` ${loads.unit}`:''}`:'');
-                });
-            }
-            this.presentation.setBlock(timer);
+            this.board.showBlock(timer, snapshot.timer_formats?.[timer.timer_type] || timer.timer_type);
         }
-        text(this.elements['block-label'],blocks[timer.block_type]);
-        text(this.elements['block-title'],timer.title || blocks[timer.block_type]);
-        text(this.elements['timer-format'],snapshot.timer_formats?.[timer.timer_type] || timer.timer_type);
-        const signature=JSON.stringify([snapshot.current_position,...snapshot.timers.map((item)=>[item.id,item.state])]);
-        if(signature!==this.stagesSignature) {
-            this.stagesSignature=signature;
-            this.elements['session-stages'].replaceChildren(...snapshot.timers.map((item,index)=>{
-                const li=document.createElement('li');
-                li.className=index===snapshot.current_position?'is-active':'';
-                if(index===snapshot.current_position) li.setAttribute('aria-current','step');
-                const name=document.createElement('strong');
-                name.textContent=`0${index+1} / ${blocks[item.block_type]}`;
-                const status=document.createElement('span');
-                status.textContent=states[item.state];
-                li.append(name,status);
-                return li;
-            }));
-        }
-        if(snapshot.box) {
-            if(this.lastTheme!==snapshot.box.theme) { document.body.style.cssText=snapshot.box.theme; this.lastTheme=snapshot.box.theme; }
-            text(this.elements['live-box-name'],snapshot.box.name);
+        this.board.showStages(snapshot.timers, snapshot.current_position);
+        if(snapshot.box) this.updateBox(snapshot.box);
+    }
+    updateBox(box) {
+        if(this.lastTheme!==box.theme) { document.body.style.cssText=box.theme; this.lastTheme=box.theme; }
+        text(this.elements['live-box-name'],box.name);
+        if (!this.publicTv) {
             const logo=this.elements['live-logo'];
             if(logo) {
-                logo.hidden=!snapshot.box.logo_url;
-                if(snapshot.box.logo_url && logo.getAttribute('src')!==snapshot.box.logo_url) logo.src=snapshot.box.logo_url;
+                logo.hidden=!box.logo_url;
+                if(box.logo_url && logo.getAttribute('src')!==box.logo_url) logo.src=box.logo_url;
             }
-            this.dateFormat=new Intl.DateTimeFormat('pt-BR',{timeZone:snapshot.box.timezone,day:'2-digit',month:'2-digit',year:'numeric'});
-            this.timeFormat=new Intl.DateTimeFormat('pt-BR',{timeZone:snapshot.box.timezone,hour:'2-digit',minute:'2-digit',second:'2-digit'});
         }
+        if (this.timezone === box.timezone) return;
+        this.timezone = box.timezone;
+        this.dateFormat=new Intl.DateTimeFormat('pt-BR',{timeZone:box.timezone,day:'2-digit',month:'2-digit',year:'numeric'});
+        this.timeFormat=new Intl.DateTimeFormat('pt-BR',{timeZone:box.timezone,hour:'2-digit',minute:'2-digit',second:'2-digit'});
     }
     ownsControl() {
         const snapshot=this.clock.snapshot;
@@ -140,8 +205,24 @@ export class SessionApp {
         const active=snapshot.status==='active';
         const owns=this.ownsControl();
         const stalePending=!snapshot.execution_started && ((snapshot.source?.updated && snapshot.source.published) || snapshot.source?.modality_enabled===false);
-        const allowed={start:timer.state==='idle' && !stalePending,pause:['preparing','running'].includes(timer.state),resume:timer.state==='paused',reset:true,previous:snapshot.current_position>0 && !stalePending,next:snapshot.current_position<snapshot.timers.length-1 && !stalePending,complete_block:!['completed','cancelled'].includes(timer.state) && !stalePending,finish:true,cancel:true};
-        this.root.querySelectorAll('[data-session-command]').forEach((button)=>{button.disabled=!(active && owns && !this.pending && allowed[button.dataset.sessionCommand]);});
+        const last = snapshot.current_position === snapshot.timers.length - 1;
+        const visible = {
+            start: timer.state === 'idle',
+            pause: ['preparing', 'running'].includes(timer.state),
+            resume: timer.state === 'paused',
+            next: !last,
+            complete_block: !['completed', 'cancelled'].includes(timer.state),
+            finish: last && timer.state === 'completed',
+            previous: snapshot.current_position > 0,
+            reset: true,
+            cancel: true,
+        };
+        this.root.querySelectorAll('[data-session-command]').forEach(button => {
+            const action = button.dataset.sessionCommand;
+            button.hidden = !(active && visible[action]);
+            const staleRestricted = ['start', 'resume', 'next', 'previous', 'complete_block'].includes(action);
+            button.disabled = button.hidden || !owns || !!this.pending || (stalePending && staleRestricted);
+        });
         const restart=this.root.querySelector('[data-source-restart-submit]');
         if(restart)restart.disabled=!(active && owns && !this.pending && snapshot.source?.updated && snapshot.source.published);
         const claim=this.elements['claim-control'];
@@ -165,7 +246,7 @@ export class SessionApp {
     async send(action) {
         if(!this.ownsControl() || this.pending || this.clock.snapshot.status!=='active') return;
         if(action==='reset' && !window.confirm('Reiniciar o cronômetro desta etapa? O tempo acumulado será zerado e o timer ficará parado.')) return;
-        if(action==='finish' && !window.confirm('Finalizar esta aula? O cronômetro será encerrado e o histórico ficará disponível para consulta.')) return;
+        if(action==='finish' && !window.confirm('Finalizar esta aula e manter seu registro no histórico?')) return;
         if(action==='cancel' && !window.confirm('Cancelar esta aula? O histórico será preservado.')) return;
         this.pending={client_id:this.client,command_id:crypto.randomUUID(),expected_version:this.clock.snapshot.version,action,...(action==='reset'?{confirmation:true}:{})};
         this.feedback('Confirmando comando com o servidor…');
@@ -188,7 +269,7 @@ export class SessionApp {
     }
     pollNow() {clearTimeout(this.timeout);if(!this.polling && !this.stopped)this.poll();}
     async poll() {
-        if(this.polling || this.stopped) return;
+        if(this.polling || this.stopped || (this.publicTv && !this.authorized)) return;
         this.polling=true;
         try {
             const result=await this.transport.read();
@@ -202,7 +283,8 @@ export class SessionApp {
         finally {
             this.polling=false;
             this.updateControls();
-            if(!this.stopped)this.timeout=setTimeout(()=>this.poll(),this.online?this.interval:Math.min(5000,this.interval*3));
+            const interval = this.publicTv && this.root.dataset.tvStatus === 'waiting' ? Math.max(3000, this.interval) : this.interval;
+            if(!this.stopped && (!this.publicTv || this.authorized)) this.timeout=setTimeout(()=>this.poll(),this.online?interval:Math.min(5000,interval*3));
         }
     }
     renderFrame() {
@@ -211,33 +293,15 @@ export class SessionApp {
         if(snapshot) {
             const timer=snapshot.timers[snapshot.current_position];
             const projection=this.clock.project();
-            this.root.dataset.phase=projection.phase;
-            this.root.dataset.timerState=timer.state;
-            text(this.elements['phase-label'],timer.state==='paused'?'Pausado':projection.awaiting_confirmation?'Limite atingido':phases[projection.phase]);
-            const direction=projection.phase==='preparation'?'down':timer.config.direction;
-            text(this.elements['timer-digits'],direction==='none'?'LIVRE':formatTime(projection.display_ms,direction));
-            text(this.elements['timer-state'],snapshot.status==='completed'?'Aula concluída':snapshot.status==='cancelled'?'Aula cancelada':projection.awaiting_confirmation?'Tempo encerrado · aguardando sincronização':timer.state==='paused'?'Pausado':projection.phase==='preparation'?'Contagem de preparação':states[timer.state]);
-            const rounds=timer.timer_type==='emom'?Math.ceil(timer.config.duration_ms/timer.config.interval_ms):timer.config.rounds;
-            text(this.elements.round,timer.timer_type==='repetitions'?`${rounds} rounds programados`:rounds>1?`Round ${projection.round} / ${rounds}`:'');
-            const station=projection.station===null?null:timer.stations[projection.station];
-            text(this.elements['current-station'],station?`Estação ${projection.station+1} · ${station.name}`:'');
-            this.presentation.focusStation(projection.station);
-            const progress=this.elements.progress;
-            progress.hidden=projection.progress===null;
-            if(projection.progress!==null) {
-                this.elements['progress-bar'].style.transform=`scaleX(${projection.progress})`;
-                progress.setAttribute('aria-valuenow',String(Math.round(projection.progress*100)));
-            }
-            text(this.elements['duration-label'],timer.config.direction==='none'?'Sem cronômetro':timer.config.duration_ms!==null?`${timer.timer_type==='for_time'?'Time cap':'Duração'} ${formatTime(timer.config.duration_ms)}`:'Sem limite de tempo');
-            text(this.elements['total-remaining'],projection.total_remaining_ms!==null?`Restante ${formatTime(projection.total_remaining_ms)}`:'');
-            if(this.elements['live-clock'] && this.timeFormat) {
-                const date=new Date(this.clock.serverNow());
-                text(this.elements['live-clock'],this.timeFormat.format(date));
-                text(this.elements['live-date'],this.dateFormat.format(date));
-            }
+            this.board.showClock(timer, projection, snapshot.status);
             const now=performance.now();
             this.sounds.update(timer,projection,now);
             this.updateControls();
+        }
+        if(this.elements['live-clock'] && this.timeFormat) {
+            const date=new Date(this.clock.serverNow());
+            text(this.elements['live-clock'],this.timeFormat.format(date));
+            text(this.elements['live-date'],this.dateFormat.format(date));
         }
         this.frame=requestAnimationFrame(()=>this.renderFrame());
     }

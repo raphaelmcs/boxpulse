@@ -109,7 +109,8 @@ class SuggestedLoadsTest extends TestCase
         $state = $this->command($state, 'next')->assertOk()->json('data');
         $state = $this->command($state, 'next')->assertOk()->json('data');
         foreach (['sessions.control', 'sessions.tv'] as $route) {
-            $this->get(route($route, $state['id']))->assertOk()->assertSee('22/16')->assertSee('20/14')->assertSee('18/12');
+            $this->get(route($route, $state['id']))->assertOk()->assertSee('22/16')->assertSee('20/14')->assertSee('18/12')
+                ->assertSeeInOrder(['data-session-timing', 'data-timer-digits', 'data-suggested-loads', 'data-load-level="rx"', 'class="session-content"'], false);
         }
         $state = $this->command($state, 'start')->assertOk()->json('data');
         $updated = $this->inputWithLoads($this->loads(['rx' => '30/20']), 'crossfit', 'full');

@@ -110,8 +110,11 @@ class ControlWorkoutSession
                 }
                 $locked->current_position = $position;
             } elseif (in_array($action, ['finish', 'cancel'], true)) {
-                if (! in_array($timer->state, ['completed', 'cancelled'], true)) {
-                    $this->state->complete($timer, $now, $action === 'cancel' ? 'cancelled' : 'completed');
+                if ($action === 'finish' && ! $locked->isFinalStageComplete()) {
+                    throw ValidationException::withMessages(['action' => 'Conclua a última etapa antes de finalizar a aula.']);
+                }
+                if ($action === 'cancel' && ! in_array($timer->state, ['completed', 'cancelled'], true)) {
+                    $this->state->complete($timer, $now, 'cancelled');
                 }
                 $locked->status = $action === 'cancel' ? 'cancelled' : 'completed';
                 $locked->active_workout_id = null;

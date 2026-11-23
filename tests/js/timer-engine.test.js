@@ -105,6 +105,19 @@ test('polling ignores older versions and estimates network latency', () => {
     assert.equal(clock.accept(snapshot(2,'idle',0),100,100),false);
     assert.equal(clock.snapshot.version,3);
 });
+test('the lobby clock uses server time and accepts a different class with a lower version', () => {
+    let now = 120;
+    const clock = new SessionClock(() => now);
+    clock.syncServerTime(100000, 80, 100);
+    assert.equal(clock.serverNow(), 100030);
+    assert.equal(clock.snapshot, null);
+
+    clock.accept({...snapshot(9,'running',0,90000), id: 5}, 120, 120);
+    now = 220;
+    assert.equal(clock.accept({...snapshot(2,'idle',0), id: 6}, 200, 220), true);
+    assert.equal(clock.snapshot.id, 6);
+    assert.equal(clock.elapsed(), 0);
+});
 test('idle, cancelled and manually completed states project deterministically', () => {
     assert.equal(projectTimer(configs.countdown,0,'idle').display_ms,60000);
     assert.equal(at('countdown',10,'cancelled').phase,'cancelled');

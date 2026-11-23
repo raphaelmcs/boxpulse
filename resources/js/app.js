@@ -1,6 +1,13 @@
+import {setupPresentationChecks} from './timers/presentation-check.js';
+import {setupStationText} from './workout-text.js';
+import {setupWorkoutEditor, workoutJson} from './workout-editor.js';
+import {setupLoadLibrary} from './workout-loads.js';
+
 const hyroxStations = ['SkiErg', 'Sled Push', 'Sled Pull', 'Burpee Broad Jumps', 'Row', 'Farmers Carry', 'Sandbag Lunges', 'Wall Balls'];
 
 const timerRegistry = JSON.parse(document.querySelector('[data-timer-registry]')?.textContent || '{}');
+const libraryPanel = document.querySelector('[data-load-library]');
+if (libraryPanel && !document.querySelector('[data-workout-form]')) setupLoadLibrary(libraryPanel, workoutJson);
 
 function updateTimerFields(block) {
     const type = block.querySelector('[data-timer-type]').value;
@@ -32,7 +39,9 @@ function addStation(editor, name = '') {
     if (list.children.length >= 64) return;
     const fragment = editor.querySelector('[data-station-template]').content.cloneNode(true);
     fragment.querySelector('input[name$="[name]"]').value = name;
+    const station = fragment.querySelector('[data-station]');
     list.append(fragment);
+    setupStationText(station);
     renumberStations(editor);
     updateStages();
 }
@@ -45,15 +54,30 @@ function updateStages() {
         stage.disabled = !enabled;
         stage.hidden = !enabled;
         const index = enabled ? position++ : 100 + stageIndex;
+        if (enabled) stage.querySelector('[data-stage-position]').textContent = String(index + 1).padStart(2, '0');
         stage.querySelectorAll('[name]').forEach((input) => { input.name = input.name.replace(/^blocks\[\d+\]/, `blocks[${index}]`); });
     });
 }
+document.querySelector('[data-enable-full-workout]')?.addEventListener('click', event => {
+    const form = event.currentTarget.closest('[data-workout-form]');
+    form.querySelector('[data-workout-structure]').value = 'full';
+    document.querySelector('[data-workout-structure-label]').textContent = 'AULA COMPLETA';
+    form.querySelector('[data-full-workout-switch]').hidden = true;
+    const controls = form.querySelector('[data-workout-stage-controls]');
+    controls.hidden = false;
+    controls.querySelector('input').focus();
+    form.dispatchEvent(new CustomEvent('workout:change', {bubbles: true}));
+});
 document.querySelectorAll('[data-block-toggle]').forEach((toggle) => {
     toggle.addEventListener('change', () => {
         const stage = document.querySelector(`[data-stage="${toggle.dataset.blockToggle}"]`);
-        const hasContent = [...stage.querySelectorAll('textarea, input:not([type=hidden])')].some(input => input.value.trim() && !input.name.includes('timer_settings') && !input.name.includes('duration_'));
-        if (!toggle.checked && hasContent && !window.confirm('Remover esta etapa ao salvar? O conteúdo das outras etapas será preservado. Você pode reativá-la antes de salvar.')) { toggle.checked = true; return; }
+        const hasContent = [...stage.querySelectorAll('textarea, input:not([type=hidden])')].some(input => {
+            if (input.name.includes('timer_settings')) return false;
+            return input.name.endsWith('[duration_extra_seconds]') ? Number(input.value) > 0 : Boolean(input.value.trim());
+        });
+        if (!toggle.checked && hasContent && !window.confirm('Remover esta etapa e salvar o rascunho? O conteúdo das outras etapas será preservado.')) { toggle.checked = true; return; }
         updateStages();
+        stage.dispatchEvent(new CustomEvent('workout:change', {bubbles: true, detail: {immediate: !toggle.checked}}));
     });
 });
 updateStages();
@@ -67,7 +91,7 @@ document.querySelectorAll('[data-stations-editor]').forEach((editor) => {
     renumberStations(editor);
     editor.addEventListener('click', (event) => {
         const button = event.target.closest('button');
-        if (!button) return;
+        if (!button || !button.matches('[data-station-add], [data-station-remove], [data-station-up], [data-station-down], [data-hyrox-template]')) return;
         const station = button.closest('[data-station]');
         if (button.hasAttribute('data-station-add')) {
             addStation(editor);
@@ -86,18 +110,11 @@ document.querySelectorAll('[data-stations-editor]').forEach((editor) => {
             editor.querySelector('[data-station-feedback]').textContent = 'Oito sugestões adicionadas. Revise distâncias, cargas e repetições; você pode remover ou adicionar estações.';
         }
         renumberStations(editor);
+        editor.dispatchEvent(new CustomEvent('workout:change', {bubbles: true}));
     });
 });
 
-document.querySelector('[data-workout-form]')?.addEventListener('submit', (event) => {
-    if (event.currentTarget.dataset.saving) {
-        event.preventDefault();
-        return;
-    }
-    event.currentTarget.dataset.saving = 'true';
-    event.currentTarget.setAttribute('aria-busy', 'true');
-    event.currentTarget.querySelector('[data-save-feedback]').textContent = 'Salvando seu treino…';
-});
+setupWorkoutEditor(document.querySelector('[data-workout-form]'));
 
 import './box-settings.js';
 import './timers/session-app.js';
@@ -131,7 +148,54 @@ document.querySelectorAll('[data-prepare-class]').forEach((form) => {
     });
 });
 
+document.querySelectorAll('[data-preparation-options]').forEach(options => {
+    const choice = options.querySelector('[data-preparation-choice]');
+    const label = options.querySelector('[data-custom-preparation]');
+    const input = label.querySelector('input');
+    const sync = () => {
+        const custom = choice.value === 'custom';
+        label.hidden = input.disabled = !custom;
+        input.required = custom;
+    };
+    choice.addEventListener('change', sync);
+    sync();
+});
+
+const tvLink = document.querySelector('[data-box-tv-link]');
+if (tvLink) {
+    const feedback = document.querySelector('[data-box-tv-copy-feedback]');
+    document.querySelector('[data-copy-box-tv]').addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(tvLink.value);
+            feedback.textContent = 'Link copiado.';
+        } catch {
+            tvLink.select();
+            feedback.textContent = document.execCommand('copy') ? 'Link copiado.' : 'O link está selecionado para copiar.';
+        }
+        feedback.hidden = false;
+    });
+
+    const presence = document.querySelector('[data-box-tv-presence]');
+    const status = presence.querySelector('[data-tv-online]');
+    const lastSeen = presence.querySelector('[data-tv-last-seen]');
+    async function refreshPresence() {
+        if (document.hidden) return;
+        try {
+            const response = await fetch(presence.dataset.boxTvPresence, {cache: 'no-store', headers: {Accept: 'application/json'}});
+            if (!response.ok) throw new Error();
+            const data = await response.json();
+            status.textContent = data.online ? 'TV conectada' : 'Sem comunicação recente da TV';
+            lastSeen.textContent = data.last_seen_at ? `Última comunicação em ${data.last_seen_at}` : 'Aguardando a primeira comunicação.';
+        } catch {
+            status.textContent = 'Estado da conexão indisponível';
+        }
+    }
+    const timer = setInterval(refreshPresence, 10000);
+    document.addEventListener('visibilitychange', refreshPresence);
+    window.addEventListener('pagehide', () => clearInterval(timer), {once: true});
+}
+
 window.addEventListener('pageshow', (event) => {
     if (event.persisted && document.querySelector('[data-box-clock]')) window.location.reload();
 });
-import './timers/presentation-check.js';
+setupPresentationChecks();

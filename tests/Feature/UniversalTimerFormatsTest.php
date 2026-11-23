@@ -66,6 +66,6 @@ class UniversalTimerFormatsTest extends TestCase
         $this->getJson(route('sessions.state', $session))->assertOk()->assertJsonPath('data.timers.0.state', 'paused');
         $state = $this->command($state, 'resume')->assertOk()->json('data');
         $this->get(route('sessions.tv', $session))->assertOk()->assertDontSee('data-page-next', false);
-        $this->command($state, 'finish')->assertOk()->assertJsonPath('data.status', 'completed');
+        $this->command($this->completeLastStage($state), 'finish')->assertOk()->assertJsonPath('data.status', 'completed');
     }
 }

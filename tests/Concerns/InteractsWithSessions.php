@@ -24,4 +24,17 @@ trait InteractsWithSessions
     {
         return $this->postJson(route('sessions.commands', $snapshot['id']), [...['client_id' => $snapshot['controller_client_id'], 'command_id' => (string) Str::uuid(), 'expected_version' => $snapshot['version'], 'action' => $action], ...$extra]);
     }
+
+    private function completeLastStage(array $snapshot): array
+    {
+        $last = count($snapshot['timers']) - 1;
+        while ($snapshot['current_position'] < $last) {
+            $snapshot = $this->command($snapshot, 'next')->assertOk()->json('data');
+        }
+        if ($snapshot['timers'][$last]['state'] !== 'completed') {
+            $snapshot = $this->command($snapshot, 'complete_block')->assertOk()->json('data');
+        }
+
+        return $snapshot;
+    }
 }

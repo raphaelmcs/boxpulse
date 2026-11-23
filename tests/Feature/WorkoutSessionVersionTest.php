@@ -70,7 +70,7 @@ class WorkoutSessionVersionTest extends TestCase
     public function test_finished_sessions_remain_unchanged_and_are_never_reused(): void
     {
         [$workout, $old] = $this->sessionFor(User::factory()->create(), [...$this->workoutInput('crossfit', 'full'), 'title' => 'Front Squat']);
-        $this->command($old, 'finish')->assertOk();
+        $this->command($this->completeLastStage($old), 'finish')->assertOk();
         $this->put(route('workouts.update', $workout), $this->updatedInput())->assertSessionHasNoErrors();
         $this->post(route('sessions.store', $workout), ['new_session_confirmation' => 1, 'previous_session_id' => $old['id']])->assertSessionHasNoErrors();
         $this->getJson(route('sessions.state', $old['id']))->assertOk()->assertJsonPath('data.title', 'Front Squat')->assertJsonPath('data.status', 'completed')->assertJsonPath('data.timers.2.description', $old['timers'][2]['description']);

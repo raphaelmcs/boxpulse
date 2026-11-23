@@ -17,7 +17,7 @@ class TimerSession extends TenantModel
 
     protected function casts(): array
     {
-        return ['suggested_loads' => 'array', 'config' => 'array', 'stations_snapshot' => 'array', 'elapsed_ms' => 'integer', 'position' => 'integer', 'started_at' => 'immutable_datetime', 'effective_started_at' => 'immutable_datetime', 'paused_at' => 'immutable_datetime', 'finished_at' => 'immutable_datetime'];
+        return ['text_style' => 'array', 'load_entries' => 'array', 'suggested_loads' => 'array', 'config' => 'array', 'stations_snapshot' => 'array', 'elapsed_ms' => 'integer', 'position' => 'integer', 'started_at' => 'immutable_datetime', 'effective_started_at' => 'immutable_datetime', 'paused_at' => 'immutable_datetime', 'finished_at' => 'immutable_datetime'];
     }
 
     public function session(): BelongsTo

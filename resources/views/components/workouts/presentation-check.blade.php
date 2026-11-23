@@ -1,8 +1,23 @@
-@props(['blocks' => [], 'editUrl' => null])
-<section class="form-panel presentation-check" data-presentation-check>
-    <h3>Legibilidade na TV</h3><p class="input-hint">Confira as etapas antes de apresentar. O ajuste usa até duas colunas e mantém um tamanho mínimo de leitura; volumes excessivos precisam ser reorganizados.</p>
-    <label>Resolução da apresentação<select data-capacity-resolution><option value="1920,1080">Full HD · 1920 × 1080</option><option value="2560,1440">QHD · 2560 × 1440</option><option value="3840,2160">4K · 3840 × 2160</option></select></label>
-    <p class="presentation-check-result" data-capacity-result role="status">Conferindo o conteúdo…</p>
-    <a class="text-link" data-capacity-edit @if($editUrl) href="{{ $editUrl }}" @else href="#" @endif>Reorganizar ou resumir conteúdo →</a>
+@props(['box', 'modality', 'title' => '', 'blocks' => [], 'editUrl' => null, 'preparation' => null, 'formId' => null])
+@unless($formId)
+    <button type="button" class="secondary-button compact" data-open-tv-preview aria-haspopup="dialog" aria-controls="tv-preview">Visualizar na TV</button>
+@endunless
+<dialog class="presentation-check" id="tv-preview" aria-labelledby="tv-preview-title" data-presentation-check
+    data-timezone="{{ $box->timezone }}" data-preview-preparation="{{ $preparation }}" @if($formId) data-preview-form="{{ $formId }}" @endif>
+    <div class="tv-preview-heading">
+        <h2 id="tv-preview-title">Prévia da TV</h2>
+        <button type="button" class="secondary-button compact" data-close-tv-preview autofocus>Fechar</button>
+    </div>
+    <label class="tv-preview-controls" data-preview-controls>Etapa<select data-preview-block></select></label>
+    <p class="presentation-check-result" data-capacity-result role="status"></p>
+    <a class="text-link" data-capacity-edit href="{{ $editUrl ?? '#' }}" hidden>Editar etapa com excesso →</a>
+    <div class="tv-preview-region" data-preview-region>
+        <div class="tv-preview-viewport" data-preview-viewport>
+            <x-sessions.screen :box="$box" :title="$title" :modality="$modality" data-preview-screen data-view="preview" />
+        </div>
+        <button type="button" class="secondary-button compact" data-preview-fullscreen>Simular tela cheia</button>
+    </div>
+    <p class="input-hint" data-preview-feedback role="status" hidden></p>
     <script type="application/json" data-capacity-blocks>@json($blocks)</script>
-</section>
+    <script type="application/json" data-preview-timers>@json(['labels' => \App\Workouts\TimerConfiguration::LABELS, 'defaults' => \App\Workouts\TimerConfiguration::defaults()])</script>
+</dialog>
