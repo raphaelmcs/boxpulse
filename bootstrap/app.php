@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectUsersTo(fn () => route('workspace'));
         $middleware->alias(['box' => ResolveCurrentBox::class]);
+        $middleware->trimStrings(except: ['blocks.*.description', 'blocks.*.notes', 'blocks.*.stations.*.description']);
         $middleware->prependToPriorityList(
             SubstituteBindings::class,
             ResolveCurrentBox::class,

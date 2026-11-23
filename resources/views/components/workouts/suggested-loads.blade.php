@@ -1,10 +1,16 @@
-@props(['loads' => null, 'live' => false])
-@php($loads = \App\Workouts\SuggestedLoads::normalize($loads))
-@if($loads || $live)
-<section class="suggested-loads" @if($live) data-suggested-loads @endif @if(! $loads) hidden @endif aria-label="Cargas sugeridas">
-    <div class="suggested-loads-heading"><span>CARGAS SUGERIDAS</span><strong @if($live) data-load-equipment @endif>{{ $loads['equipment'] ?? '' }}</strong></div>
-    <div class="suggested-load-cards">@foreach(\App\Workouts\SuggestedLoads::LEVELS as $key => $label)
-        @if($live || ($loads[$key] ?? null) !== null)<div class="suggested-load-card" @if($live) data-load-level="{{ $key }}" @endif @if(($loads[$key] ?? null) === null) hidden @endif><span>{{ $label }}</span><strong @if($live) data-load-value @endif>{{ isset($loads[$key]) ? \App\Workouts\SuggestedLoads::display($loads[$key], $loads['unit']) : '' }}</strong></div>@endif
-    @endforeach</div>
+@props(['loads' => null, 'entries' => null, 'live' => false])
+@php
+    $legacy = \App\Workouts\SuggestedLoads::normalize($loads);
+    $rows = array_filter([$legacy, ...($entries ?? [])], fn ($entry) => \App\Workouts\SuggestedLoads::normalize($entry) !== null);
+@endphp
+@if($rows || $live)
+<section class="suggested-loads" @if($live) data-suggested-loads @endif @if(!$rows) hidden @endif aria-label="Cargas sugeridas">
+    <h3 class="suggested-loads-heading" @if($live) data-load-heading @endif>{{ $rows ? 'CARGAS SUGERIDAS' : '' }}</h3>
+    <div class="suggested-load-entries" @if($live) data-live-load-entries @endif>
+        @foreach($rows as $entry)
+            <x-workouts.suggested-load-row :entry="$entry" />
+        @endforeach
+    </div>
+    @if($live)<template data-load-row-template><x-workouts.suggested-load-row /></template>@endif
 </section>
 @endif

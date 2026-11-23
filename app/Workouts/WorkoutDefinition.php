@@ -4,6 +4,9 @@ namespace App\Workouts;
 
 use App\Models\TrainingModality;
 use App\Models\Workout;
+use App\Models\WorkoutBlock;
+use App\Models\WorkoutStation;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as LaravelValidator;
@@ -20,7 +23,12 @@ class WorkoutDefinition
             'scheduled_for' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2100-12-31'],
             'status' => ['required', Rule::in(['draft', 'published'])],
             'blocks' => [$published ? 'required' : 'sometimes', 'array', 'list', 'max:3'],
-            'blocks.*' => ['array:type,title,description,notes,timer_type,timer_settings,duration_seconds,suggested_loads,stations'],
+            'blocks.*' => ['array:type,title,description,notes,timer_type,timer_settings,duration_seconds,suggested_loads,load_entries,text_style,stations'],
+            'presentation_options' => ['sometimes', 'array:preparation_seconds,auto_advance'],
+            'presentation_options.preparation_seconds' => ['nullable', 'integer', 'min:0', 'max:60'],
+            'presentation_options.auto_advance' => ['sometimes', 'boolean'],
+            ...WorkoutTextStyle::rules(),
+            ...SuggestedLoads::entryRules(),
             'blocks.*.type' => ['required', Rule::in(['warmup', 'skill', 'workout']), 'distinct:strict'],
             'blocks.*.title' => ['nullable', 'string', 'max:160'],
             'blocks.*.description' => ['nullable', 'string', 'max:20000'],
@@ -34,7 +42,7 @@ class WorkoutDefinition
             'blocks.*.timer_settings' => ['sometimes', 'array:preparation_seconds,interval_seconds,work_seconds,rest_seconds,rounds,transition_seconds,stop_at_cap'],
             ...collect(TimerConfiguration::parameterRules())->mapWithKeys(fn ($rules, $field) => ["blocks.*.timer_settings.$field" => $rules])->all(),
             'blocks.*.stations' => ['sometimes', 'array', 'list', 'max:64'],
-            'blocks.*.stations.*' => ['array:name,description,distance,repetitions,load,duration_seconds,rest_seconds,transition_seconds'],
+            'blocks.*.stations.*' => ['array:name,description,distance,repetitions,load,duration_seconds,rest_seconds,transition_seconds,text_style'],
             'blocks.*.stations.*.name' => [$published ? 'required' : 'nullable', 'string', 'max:160'],
             'blocks.*.stations.*.description' => ['nullable', 'string', 'max:5000'],
             'blocks.*.stations.*.distance' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
@@ -54,12 +62,13 @@ class WorkoutDefinition
             return;
         }
         $data = $validator->getData();
-        $blocks = $this->meaningfulBlocks($data['blocks'] ?? []);
         $published = $data['status'] === 'published';
+        $submitted = $data['blocks'] ?? [];
+        $blocks = $this->meaningfulBlocks($submitted, includeEquipmentOnly: ! $published);
         $modality = TrainingModality::findOrFail($data['training_modality_id'])->slug;
-        $types = array_column($blocks, 'type');
+        $types = array_column($submitted, 'type');
         $expected = $data['structure'] === 'full' ? ['warmup', 'skill', 'workout'] : ['workout'];
-        if (($published && $types === []) || array_diff($types, $expected) !== [] || ($types !== [] && $types !== array_values(array_intersect($expected, $types)))) {
+        if (($published && $blocks === []) || array_diff($types, $expected) !== [] || ($types !== [] && $types !== array_values(array_intersect($expected, $types)))) {
             $validator->errors()->add('blocks', 'Preencha ao menos uma etapa para publicar, na ordem aquecimento, técnica e principal. No modo simplificado, use apenas o principal.');
         }
         foreach ($blocks as $index => $block) {
@@ -94,26 +103,36 @@ class WorkoutDefinition
         }
     }
 
-    public function meaningfulBlocks(array $blocks): array
+    public function meaningfulBlocks(array $blocks, bool $includeEquipmentOnly = true): array
     {
-        return array_filter($blocks, function (array $block): bool {
+        return array_filter($blocks, function (array $block) use ($includeEquipmentOnly): bool {
             foreach (['title', 'description', 'notes'] as $field) {
                 if (trim($block[$field] ?? '') !== '') {
                     return true;
                 }
             }
 
-            return ! empty($block['stations']) || SuggestedLoads::normalize($block['suggested_loads'] ?? null) !== null;
+            $entries = SuggestedLoads::normalizeEntries($block['load_entries'] ?? []) ?? [];
+
+            $stations = array_filter($block['stations'] ?? [], fn (array $station): bool => array_filter(
+                array_diff_key($station, ['text_style' => true]), fn ($value): bool => trim((string) $value) !== ''
+            ) !== []);
+
+            return $stations !== [] || SuggestedLoads::normalize($block['suggested_loads'] ?? null) !== null
+                || ($includeEquipmentOnly ? $entries !== [] : array_filter($entries, fn (array $entry) => SuggestedLoads::normalize($entry) !== null) !== []);
         });
     }
 
-    public function validate(array $data): array
+    public function validate(array $data, bool $keepIncompleteStages = false): array
     {
         $validator = Validator::make($data, $this->rules($data), [], $this->attributes());
         $validator->after(fn (LaravelValidator $validator) => $this->checkStructure($validator));
 
         $validated = $validator->validate();
-        $validated['blocks'] = array_values($this->meaningfulBlocks($validated['blocks'] ?? []));
+        $validated['blocks'] = $validated['blocks'] ?? [];
+        if (! $keepIncompleteStages || $validated['status'] === 'published') {
+            $validated['blocks'] = array_values($this->meaningfulBlocks($validated['blocks'], includeEquipmentOnly: $validated['status'] === 'draft'));
+        }
 
         return $validated;
     }
@@ -124,14 +143,40 @@ class WorkoutDefinition
             'training_modality_id' => $workout->training_modality_id,
             'title' => $workout->title, 'scheduled_for' => $workout->scheduled_for->format('Y-m-d'),
             'structure' => $workout->structure, 'status' => $workout->status,
+            'presentation_options' => $workout->presentation_options ?? [],
             'blocks' => $workout->blocks->map(fn ($block) => [
                 'type' => $block->type, 'title' => $block->title, 'description' => $block->description, 'notes' => $block->notes,
-                'suggested_loads' => $block->suggested_loads,
+                'suggested_loads' => $block->suggested_loads, 'load_entries' => $block->load_entries, 'text_style' => $block->text_style,
                 'timer_type' => $block->timer_type, 'duration_seconds' => $block->duration_seconds,
                 'timer_settings' => array_diff_key($block->timer_settings ?? [], ['version' => true]),
-                'stations' => $block->stations->map(fn ($station) => $station->only(['name', 'description', 'distance', 'repetitions', 'load', 'duration_seconds', 'rest_seconds', 'transition_seconds']))->all(),
+                'stations' => $block->stations->map(fn ($station) => $station->only(['name', 'description', 'distance', 'repetitions', 'load', 'duration_seconds', 'rest_seconds', 'transition_seconds', 'text_style']))->all(),
             ])->all(),
         ];
+    }
+
+    public function forEditing(Workout $workout): array
+    {
+        return $workout->editor_draft ?? $this->fromWorkout($workout->loadMissing('blocks.stations'));
+    }
+
+    public function draftPreview(Workout $workout): Workout
+    {
+        $data = $this->forEditing($workout);
+        $preview = clone $workout;
+        $preview->fill(array_intersect_key($data, array_flip(['title', 'scheduled_for', 'training_modality_id', 'structure'])));
+        $preview->status = 'draft';
+        $preview->presentation_options = $data['presentation_options'] ?? null;
+        $preview->setRelation('modality', TrainingModality::findOrFail($data['training_modality_id']));
+        $blocks = array_values($this->meaningfulBlocks($data['blocks'], includeEquipmentOnly: false));
+        $preview->setRelation('blocks', new Collection(array_map(function (array $block, int $position): WorkoutBlock {
+            $model = new WorkoutBlock(array_diff_key($block, ['stations' => true]));
+            $model->position = $position;
+            $model->setRelation('stations', new Collection(array_map(fn (array $station) => new WorkoutStation($station), $block['stations'] ?? [])));
+
+            return $model;
+        }, $blocks, array_keys($blocks))));
+
+        return $preview;
     }
 
     public function attributes(): array
@@ -154,6 +199,7 @@ class WorkoutDefinition
         }
         $scalarFields = fn (array $fields): array => array_map(fn ($value) => is_scalar($value) ? $value : '', $fields);
         $blocks = is_array($values['blocks'] ?? null) ? $values['blocks'] : [];
+        $values['presentation_options'] = is_array($values['presentation_options'] ?? null) ? $scalarFields($values['presentation_options']) : [];
         $values['blocks'] = [];
         foreach ($blocks as $block) {
             if (! is_array($block) || ! in_array($block['type'] ?? null, ['warmup', 'skill', 'workout'], true)) {
@@ -161,7 +207,7 @@ class WorkoutDefinition
             }
             $settings = is_array($block['timer_settings'] ?? null) ? $scalarFields($block['timer_settings']) : [];
             $stations = is_array($block['stations'] ?? null) ? array_values(array_filter($block['stations'], 'is_array')) : [];
-            $values['blocks'][] = [...$scalarFields($block), 'suggested_loads' => is_array($block['suggested_loads'] ?? null) ? $scalarFields($block['suggested_loads']) : [], 'timer_settings' => $settings, 'stations' => array_map($scalarFields, $stations)];
+            $values['blocks'][] = [...$scalarFields($block), 'suggested_loads' => is_array($block['suggested_loads'] ?? null) ? $scalarFields($block['suggested_loads']) : [], 'load_entries' => $block['load_entries'] ?? [], 'text_style' => $block['text_style'] ?? [], 'timer_settings' => $settings, 'stations' => array_map(fn (array $station) => [...$scalarFields($station), 'text_style' => $station['text_style'] ?? []], $stations)];
         }
 
         return $values;

@@ -57,6 +57,9 @@ A aplicação usa fontes do sistema, sem depender de download de fontes no build
 vendor/bin/sail artisan test --compact
 vendor/bin/pint --dirty --format agent
 composer check-platform-reqs
+npm run test:editor
+npm run test:timers
+npm run test:presentation
 npm run build
 ```
 
@@ -66,7 +69,7 @@ No ambiente desta entrega, `docker compose exec -T laravel.test php artisan test
 
 ## Dados demonstrativos
 
-`vendor/bin/sail artisan db:seed` cria, apenas em `local`/`testing`, uma box fictícia com usuário `boxpulse.demo`. A senha é aleatória e não é exibida nem possui valor padrão compartilhado. O seeder é idempotente e não altera usuários existentes. Para experimentar login e o painel, crie sua própria conta em `/register`. O `WorkoutDemoSeeder` adiciona um treino principal publicado por modalidade à box demo, sem sobrescrever os existentes. Nenhum dado demo é inserido em outras boxes.
+`vendor/bin/sail artisan db:seed` cria, apenas em `local`/`testing`, uma box fictícia com usuário `boxpulse.demo`. A senha é aleatória e não é exibida nem possui valor padrão compartilhado. O seeder é idempotente e não altera usuários existentes. Para experimentar login e o painel, crie sua própria conta em `/register`. O `WorkoutDemoSeeder` adiciona um treino principal publicado por modalidade à box demo, sem sobrescrever os existentes. O seeder de cargas também adiciona uma referência à biblioteca dessa box. Nenhum dado demo é inserido em outras boxes.
 
 ## Documentação
 
@@ -74,6 +77,7 @@ No ambiente desta entrega, `docker compose exec -T laravel.test php artisan test
 - [Banco de dados e esquema proposto](docs/database.md)
 - [Configuração dos formatos e contrato do motor futuro](docs/timers.md)
 - [Roadmap e validação](docs/roadmap.md)
+- [Editor V2, biblioteca de cargas e preparação de release](docs/workout-editor-v2.md)
 - [Instruções permanentes para agentes](AGENTS.md)
 
 ## Preparação para produção
@@ -87,6 +91,12 @@ Após login, abra `/dashboard`, escolha uma modalidade e cadastre um treino comp
 `/workouts/{id}/preview` permite revisar inclusive rascunhos. `/workouts/{id}/presentation` prepara a pré-visualização somente de publicados. Essas rotas permanecem como revisão estática. Para executar uma aula, use o formulário **Iniciar apresentação** disponível para publicados. O calendário permite copiar uma semana inteira: `abort` cancela se houver qualquer treino no destino; `append` preserva os existentes e adiciona cópias como rascunhos.
 
 Validação da Fase 2: **85 testes / 359 verificações no PHP 8.3 e no Sail PHP 8.5**, incluindo a regressão da Fase 1. Fluxo real no Chrome: cadastro QA, aula HYROX completa, sugestão de oito estações, reordenação/remoção, publicação, preview Full HD, calendário, campos dinâmicos e formulário a 390 px sem overflow horizontal. O fluxo de navegador utilizou uma conta local identificada como `QA • BoxPulse Fase 2`; não alterou contas existentes.
+
+### Programação semanal e calendário mensal
+
+Em **Gestão da Box → Programação semanal**, use o calendário lateral para navegar entre meses e escolher um dia. Setas de mês mantêm a semana aberta. Selecionar uma data atualiza a semana de segunda a domingo e mantém o filtro. **Hoje** usa a data no fuso da box. Nos tamanhos menores, o calendário fica abaixo da semana.
+
+**+ Adicionar treino** abre o editor completo na data do card. Aquecimento, técnica e WOD são opcionais, em ordem de aula. O modo **Somente treino principal** continua disponível pela página da modalidade. Veja como homologar o calendário e a edição no [guia do Editor V2](docs/workout-editor-v2.md#etapas-opcionais-e-programação-semanal).
 
 ## Executar a Fase 3
 
@@ -156,3 +166,20 @@ Validação final do conjunto registrada no [relatório do hotfix](docs/producti
 
 
 Validação final integrada: **284 testes PHP / 3.293 verificações em PHP 8.3 e Sail PHP 8.5; 27 testes JavaScript (16 timers + 11 apresentação). Build Vite, Pint, Composer, compilação Blade e diff check aprovados.**
+
+
+## Editor de treinos V2
+
+O editor da Gestão salva em rascunho após 1 segundo de inatividade e mantém **Salvar** para gravação imediata. Treinos publicados permanecem na programação com a revisão aprovada até **Republicar treino**. **Visualizar na TV** abre o rascunho atual em um modal 16:9 com o painel 35/65. A TV ajusta o painel automaticamente às dimensões da janela. A revisão salva também pode ser aberta em outra aba.
+
+Escolha a contagem de preparação e o avanço automático ao preparar uma nova aula no Modo Aula ou em **Iniciar apresentação** na Gestão. Preferências anteriores do treino preenchem os valores iniciais. A opção **Por etapa** usa a configuração de cada bloco, com 10 s por padrão.
+
+Formate títulos, linhas, subtítulos e estações no próprio bloco. **Cargas sugeridas** reúne equipamentos, presets da box e uma análise local dos movimentos e pesos descritos. Aplique apenas os itens revisados. Consulte o [guia do Editor V2](docs/workout-editor-v2.md) para as fontes da biblioteca, regras do autosave, migrations, testes e instruções de release.
+
+## TV do Box
+
+O administrador gera ou substitui o link em **Configurações da Box → TV do Box**. O navegador da TV abre o link diretamente, exibe a espera com a identidade da box e acompanha a aula iniciada pelo coach. Veja as rotas, a migration e o roteiro de homologação no [guia da TV do Box](docs/tv-do-box.md).
+
+## Biblioteca de cargas e finalização de aulas
+
+Em **Configurações da Box → Biblioteca de Movimentos e Cargas**, o administrador cadastra movimentos e presets específicos. No painel do coach, **Finalizar aula** aparece quando a última etapa é concluída. Veja as regras e o roteiro no [guia da Biblioteca V3 e finalização](docs/library-v3-and-class-completion.md).

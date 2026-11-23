@@ -131,7 +131,7 @@ class BoxModalitiesTest extends TestCase
         $state = $this->command($state, 'resume')->assertOk()->json('data');
         $state = $this->command($state, 'next')->assertOk()->json('data');
         $this->get(route('sessions.tv', $state['id']))->assertOk();
-        $this->command($state, 'finish')->assertOk();
+        $this->command($this->completeLastStage($state), 'finish')->assertOk();
         $this->post(route('sessions.store', $workout))->assertSessionHasErrors('training_modality_id');
         $this->assertDatabaseCount('workout_sessions', 1);
 

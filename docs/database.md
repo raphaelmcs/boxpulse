@@ -13,6 +13,10 @@ Banco MySQL compartilhado, IDs internos numéricos, isolamento lógico e constra
 | `workout_blocks` | id, box_id, workout_id, type warmup/skill/workout, position, title/description/notes opcionais, timer_type, timer_settings JSON, duration_seconds nullable, timestamps |
 | `workout_stations` | id, box_id, workout_block_id, position, name/description opcionais para rascunhos, distance DECIMAL (m), repetitions, load DECIMAL (kg), duration/rest/transition_seconds nullable, timestamps |
 
+**TV do Box** adiciona `boxes.tv_access_hash` (SHA-256, anulável, único) e `boxes.tv_access_token` (texto criptografado, anulável). O índice `workout_sessions_box_tv_started_index` cobre `box_id, started_at, id`. A migration é aditiva e dispensa backfill. A comunicação recente é mantida no cache e a rotação usa uma chave de cache diferente. Veja [TV do Box](tv-do-box.md).
+
+A **Biblioteca V3** acrescenta `load_movements` para movimentos personalizados e evolui `load_presets` com nome, contexto, observações e referência opcional ao movimento privado por FK composta da box. O catálogo-base tem identificadores estáveis em código. O JSON de cargas pode guardar implemento e a origem do preset. A migration preserva valores e snapshots existentes. Veja o [guia da Biblioteca V3](library-v3-and-class-completion.md).
+
 O JSON fica restrito a parâmetros variáveis do timer (`version:1`); texto, estações, datas e relações são colunas próprias. Não foi criada uma tabela extra de settings de relação 1:1, pois a configuração pertence integralmente ao bloco e não tem ciclo de vida independente. O motor implementado segue timers.md.
 
 ```mermaid
@@ -83,3 +87,11 @@ Aplicadas via migrate, sem comandos destrutivos. Nenhum tempo, conteúdo, sessã
 ## Fase 4 e hotfix de apresentação
 
 Não criam migrations. Gestão/Aula usam as mesmas tabelas. Nova aula após execução encerrada exige confirmação vinculada ao último ID, conferida sob locks existentes; nenhuma coluna adicional necessária. Etapas opcionais são somente linhas existentes de workout_blocks ordenadas e reindexadas. Atualizações continuam transacionais via SaveWorkout; snapshots de timer_sessions permanecem independentes e não são apagados ao remover uma etapa do workout atual. Descrições não são alteradas pelo layout adaptativo. Não houve acesso ao banco de produção nesta entrega.
+
+
+## Editor V2
+
+- `workouts.edit_version`, `editor_create_id`, `editor_write_id` e `editor_write_hash` coordenam versão esperada e repetição do envio. O índice único por `box_id` e ID de criação evita duplicar novos rascunhos. `editor_draft` mantém o agregado em revisão de um treino publicado ou a composição em edição de um rascunho com etapas incompletas. Os blocos canônicos continuam contendo apenas etapas com conteúdo. `presentation_options` mantém as opções canônicas de novas sessões.
+- `workout_blocks.text_style` e `workout_stations.text_style` guardam pesos, cores validadas e índices esparsos de linhas. `workout_blocks.load_entries` permite várias referências por bloco. O campo `suggested_loads` legado preserva os valores anteriores.
+- `timer_sessions.text_style`, `load_entries` e estilos embutidos em `stations_snapshot` são capturados na preparação. Valores nulos preservam o comportamento legado.
+- `load_presets` pertence a uma box por FK e escopo global. Registra movimento, equipamento, níveis por masculino e feminino, unidade, referência e estado. A biblioteca-base vive no código. Nenhuma migration faz backfill de conteúdos ou sessões.

@@ -15,11 +15,16 @@ class Workout extends TenantModel
     /** @use HasFactory<WorkoutFactory> */
     use HasFactory;
 
-    protected $attributes = ['content_version' => 1];
+    protected $attributes = ['content_version' => 1, 'edit_version' => 1];
 
     protected function casts(): array
     {
-        return ['scheduled_for' => 'immutable_date', 'content_version' => 'integer'];
+        return ['scheduled_for' => 'immutable_date', 'content_version' => 'integer', 'edit_version' => 'integer', 'editor_draft' => 'array', 'presentation_options' => 'array'];
+    }
+
+    public function hasUnpublishedChanges(): bool
+    {
+        return $this->status === 'published' && $this->editor_draft !== null;
     }
 
     public function modality(): BelongsTo

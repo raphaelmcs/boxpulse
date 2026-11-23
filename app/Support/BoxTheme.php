@@ -31,7 +31,7 @@ class BoxTheme
         return "--box-primary:$primary;--box-secondary:$secondary;--box-primary-text:".self::text($primary).';--box-primary-foreground:'.self::text($primary).';--box-secondary-foreground:'.self::text($secondary).';--box-accent:'.self::accent($primary).';--box-secondary-accent:'.self::accent($secondary).';';
     }
 
-    public static function accent(string $color): string
+    public static function accent(string $color, float $backgroundLuminance = 0.02): string
     {
         $channels = array_map('hexdec', str_split(substr($color, 1), 2));
         for ($step = 0; $step <= 20; $step++) {
@@ -42,7 +42,7 @@ class BoxTheme
                 return $channel <= 0.04045 ? $channel / 12.92 : (($channel + 0.055) / 1.055) ** 2.4;
             }, str_split(substr($candidate, 1), 2));
             $luminance = 0.2126 * $linear[0] + 0.7152 * $linear[1] + 0.0722 * $linear[2];
-            if (($luminance + 0.05) / (0.02 + 0.05) >= 4.5) {
+            if (($luminance + 0.05) / ($backgroundLuminance + 0.05) >= 4.5) {
                 return $candidate;
             }
         }

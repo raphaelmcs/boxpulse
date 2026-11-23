@@ -18,6 +18,21 @@ class SessionState
         return $elapsed;
     }
 
+    public function needsSynchronization(TimerSession $timer, CarbonImmutable $now): bool
+    {
+        $elapsed = $this->elapsed($timer, $now);
+
+        return ($timer->state === 'preparing' && $elapsed >= $timer->config['preparation_ms'])
+            || ($timer->state === 'running' && $this->reachedLimit($timer, $elapsed));
+    }
+
+    private function reachedLimit(TimerSession $timer, int $elapsed): bool
+    {
+        $limit = $timer->config['limit_ms'];
+
+        return $limit !== null && $elapsed >= $timer->config['preparation_ms'] + $limit;
+    }
+
     /** Must run while holding a lock on the parent session. */
     public function synchronize(WorkoutSession $session, CarbonImmutable $now): WorkoutSession
     {
@@ -35,7 +50,7 @@ class SessionState
                 $timer->state = 'running';
                 $changed = true;
             }
-            if ($timer->state === 'running' && $limit !== null && $elapsed >= $preparation + $limit) {
+            if ($timer->state === 'running' && $this->reachedLimit($timer, $elapsed)) {
                 $timer->state = 'completed';
                 $timer->elapsed_ms = $preparation + $limit;
                 $timer->finished_at = $now->subMilliseconds($elapsed - $timer->elapsed_ms);
@@ -51,10 +66,6 @@ class SessionState
             }
             $next = $session->timers()->where('position', $session->current_position + 1)->first();
             if (! $next) {
-                $session->status = 'completed';
-                $session->active_workout_id = null;
-                $session->finished_at = $timer->finished_at;
-                $changed = true;
                 break;
             }
             $session->current_position++;

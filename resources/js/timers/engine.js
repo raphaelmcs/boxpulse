@@ -54,15 +54,16 @@ export function formatTime(milliseconds, direction = 'down') {
 export class SessionClock {
     constructor(now = () => performance.now()) { this.now = now; this.snapshot = null; this.anchor = 0; this.base = 0; }
     accept(snapshot, sentAt, receivedAt = this.now()) {
-        if (this.snapshot && snapshot.version < this.snapshot.version) return false;
+        const sameSession = this.snapshot && this.snapshot.id === snapshot.id;
+        if (sameSession && snapshot.version < this.snapshot.version) return false;
         const timer = snapshot.timers[snapshot.current_position];
         let elapsed = timer.elapsed_ms;
         if (['preparing', 'running'].includes(timer.state)) elapsed += Math.max(0, snapshot.server_time_ms - timer.effective_started_at_ms + Math.max(0, receivedAt - sentAt) / 2);
-        if (this.snapshot?.version === snapshot.version && this.snapshot.current_position === snapshot.current_position && ['preparing', 'running'].includes(timer.state)) elapsed = Math.max(elapsed, this.elapsed(receivedAt));
+        if (sameSession && this.snapshot.version === snapshot.version && this.snapshot.current_position === snapshot.current_position && ['preparing', 'running'].includes(timer.state)) elapsed = Math.max(elapsed, this.elapsed(receivedAt));
         this.snapshot = snapshot;
         this.base = elapsed;
         this.anchor = receivedAt;
-        this.serverAnchor = snapshot.server_time_ms + Math.max(0, receivedAt - sentAt) / 2;
+        this.syncServerTime(snapshot.server_time_ms, sentAt, receivedAt);
         return true;
     }
     elapsed(at = this.now()) {
@@ -73,5 +74,9 @@ export class SessionClock {
         const timer = this.snapshot.timers[this.snapshot.current_position];
         return projectTimer(timer.config, this.elapsed(), timer.state);
     }
-    serverNow() { return this.serverAnchor + Math.max(0, this.now() - this.anchor); }
+    syncServerTime(serverTime, sentAt, receivedAt) {
+        this.serverAnchor = serverTime + Math.max(0, receivedAt - sentAt) / 2;
+        this.serverReceivedAt = receivedAt;
+    }
+    serverNow() { return this.serverAnchor + Math.max(0, this.now() - this.serverReceivedAt); }
 }

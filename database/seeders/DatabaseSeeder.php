@@ -26,6 +26,6 @@ class DatabaseSeeder extends Seeder
                 'password' => Str::password(32),
             ]);
         }
-        $this->call(WorkoutDemoSeeder::class);
+        $this->call([WorkoutDemoSeeder::class, LoadPresetSeeder::class]);
     }
 }

@@ -18,10 +18,11 @@ class DuplicateWorkout
             $box = BoxModalities::lock($actor);
             $source = Workout::whereKey($workout->id)->lockForUpdate()->firstOrFail()->load('blocks.stations');
             BoxModalities::ensureEnabled($box, $source->training_modality_id);
-            $copy = $source->replicate();
+            $copy = $source->replicate(['editor_draft', 'editor_create_id', 'editor_write_id', 'editor_write_hash']);
             $copy->scheduled_for = $date;
             $copy->status = 'draft';
             $copy->content_version = 1;
+            $copy->edit_version = 1;
             $copy->created_by = $actor->id;
             $copy->save();
             foreach ($source->blocks as $block) {

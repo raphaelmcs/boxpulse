@@ -40,6 +40,13 @@ class WorkoutSession extends TenantModel
         return $this->hasMany(TimerSession::class)->orderBy('position');
     }
 
+    public function isFinalStageComplete(): bool
+    {
+        $last = $this->timers->last();
+
+        return $last !== null && $last->position === $this->current_position && $last->state === 'completed';
+    }
+
     public function commands(): HasMany
     {
         return $this->hasMany(SessionCommand::class);

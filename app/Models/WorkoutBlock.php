@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['type', 'position', 'title', 'description', 'notes', 'timer_type', 'timer_settings', 'duration_seconds', 'suggested_loads'])]
+#[Fillable(['type', 'position', 'title', 'description', 'notes', 'timer_type', 'timer_settings', 'duration_seconds', 'suggested_loads', 'text_style', 'load_entries'])]
 class WorkoutBlock extends TenantModel
 {
     /** @use HasFactory<WorkoutBlockFactory> */
@@ -16,7 +16,7 @@ class WorkoutBlock extends TenantModel
 
     protected function casts(): array
     {
-        return ['suggested_loads' => 'array', 'timer_settings' => 'array', 'duration_seconds' => 'integer'];
+        return ['text_style' => 'array', 'load_entries' => 'array', 'suggested_loads' => 'array', 'timer_settings' => 'array', 'duration_seconds' => 'integer'];
     }
 
     public function workout(): BelongsTo

@@ -15,6 +15,13 @@ class Box extends Model
     /** @use HasFactory<BoxFactory> */
     use HasFactory;
 
+    protected $hidden = ['tv_access_hash', 'tv_access_token'];
+
+    protected function casts(): array
+    {
+        return ['tv_access_token' => 'encrypted'];
+    }
+
     public function modalities(): BelongsToMany
     {
         return $this->belongsToMany(TrainingModality::class, 'box_modalities');

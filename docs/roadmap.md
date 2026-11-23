@@ -8,6 +8,9 @@
 
 ## Fase 3 — funcionalidades
 
+- A [TV do Box](tv-do-box.md) tem link de leitura por box, espera personalizada, conexão por polling e rotação pelo administrador. Implementação e homologação restritas ao ambiente local.
+- A [Biblioteca V3 e a finalização explícita](library-v3-and-class-completion.md) acrescentam movimentos e presets por box, revisão de cargas e a ação de encerrar a aula após concluir a última etapa.
+
 - Configurações da Box acessível no menu: nomes, administrador, timezone, logo e duas cores. Color picker + hex, prévia, contraste, persistência após login e tema/logo nas telas principais e TV aberta.
 - Upload PNG/JPEG/WebP até 2 MB, nome exclusivo, substituição/remover, validação de dimensões, limpeza no rollback e exclusão da antiga após commit. Storage público com symlink relativo configurado.
 - Motor puro compartilhado por coach/TV: stopwatch, countdown, FOR TIME, AMRAP, EMOM, Tabata, intervalado, circuito e etapas livres. Preparação configurável; contratos legados em segundos preservados, snapshot executável em ms.
@@ -97,3 +100,16 @@ Não houve migration, deploy ou alteração no banco de produção. Pendência o
 
 
 Validação final integrada: **284 testes PHP / 3.293 verificações em PHP 8.3 e Sail PHP 8.5; 27 testes JavaScript (16 timers + 11 apresentação). Build Vite, Pint, Composer, compilação Blade e diff check aprovados.**
+
+
+## Editor de treinos V2
+
+Entregue no editor existente. Inclui estilo por título e linha, autosave com conflitos, rascunho separado do publicado, referências de carga por equipamento e análise local com aprovação seletiva. As opções de apresentação, formatação e cargas entram em novos snapshots depois da publicação. Guia de uso, migrations, testes e preparação para Hostinger no [Editor V2](workout-editor-v2.md).
+
+
+A prévia agora monta a mesma tela que a TV, permite escolher o bloco e a resolução e mantém o cronômetro parado. O layout horizontal é 35/65. O ajuste de fonte mede o espaço disponível com título e cargas. A entrega inclui testes de paridade em Chrome headless. Ver [prévia da TV e dimensionamento](workout-editor-v2.md#prévia-da-tv-e-dimensionamento).
+
+
+## Correção das etapas e calendário mensal
+
+Os atalhos gerais do editor abrem a aula completa, com modo simplificado disponível por escolha. O autosave preserva etapas incompletas na reabertura e a apresentação mostra somente os blocos preenchidos. A Programação semanal ganhou um calendário mensal responsivo com seleção independente de mês, fuso da box e marcadores por modalidade. Ver [fluxo e homologação local](workout-editor-v2.md#etapas-opcionais-e-programação-semanal).

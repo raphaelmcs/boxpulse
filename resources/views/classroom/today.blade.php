@@ -17,7 +17,7 @@
         $main = $workout->blocks->firstWhere('type', 'workout') ?? $workout->blocks->first();
     @endphp
     <article class="classroom-card" id="workout-{{ $workout->id }}" data-workout-id="{{ $workout->id }}">
-        <div class="classroom-card-top"><span class="eyebrow">{{ $workout->modality->name }}</span><span class="status-badge {{ $active ? 'published' : 'draft' }}">{{ $active ? ($begun ? 'Aula em andamento' : 'Preparação pronta') : ($last ? 'Última aula encerrada' : 'Pronta para preparar') }}</span></div>
+        <div class="classroom-card-top"><span class="eyebrow">{{ $workout->modality->name }}</span><span class="status-badge {{ $active ? 'published' : 'draft' }}">{{ $active ? ($active->isFinalStageComplete() ? 'Última etapa concluída' : ($begun ? 'Aula em andamento' : 'Preparação pronta')) : ($last ? 'Última aula encerrada' : 'Pronta para preparar') }}</span></div>
         <h3>{{ $workout->title }}</h3><p class="classroom-structure">{{ $workout->blocks->map(fn ($block) => ['warmup' => 'Warm-up', 'skill' => 'Skill', 'workout' => 'Workout'][$block->type])->join(' + ') }} · {{ $workout->blocks->count() }} {{ $workout->blocks->count() === 1 ? 'bloco' : 'blocos' }}</p>
         <p class="classroom-timing">{{ \App\Workouts\WorkoutPresentation::mainTiming($main) }}</p>
         @if($active)<p class="input-hint">Aula #{{ $active->id }} · preparada em {{ $active->created_at->setTimezone($box->timezone)->format('d/m H:i') }}@if($active->workout_version !== $workout->content_version) · {{ $begun ? 'Conteúdo original preservado.' : 'O conteúdo será atualizado ao preparar.' }}@endif</p>
@@ -26,6 +26,9 @@
         @if($begun)<a class="primary-button compact" href="{{ route('sessions.control', $active) }}">Retomar aula →</a>
         @else<form method="POST" action="{{ route('coach.prepare', $workout) }}" class="classroom-prepare-form form-stack" data-prepare-class>@csrf
             @if($newRun)<input type="hidden" name="previous_session_id" value="{{ $last->id }}"><label class="checkbox-label"><input type="checkbox" name="new_session_confirmation" value="1" required>Confirmo iniciar outra aula. A sessão anterior permanece no histórico.</label>@endif
+            @if(! $active || ($active->workout_version !== $workout->content_version && auth()->user()->can('control', $active)))
+                <x-sessions.preparation-options :workout="$workout" />
+            @endif
             <button type="submit" class="primary-button compact">{{ $active ? 'Continuar preparação' : ($last ? 'Iniciar nova sessão' : 'Preparar aula') }} ↗</button><span class="input-hint" data-prepare-feedback role="status">O cronômetro começa apenas pelo controle da aula.</span>
         </form>@endif
     </article>

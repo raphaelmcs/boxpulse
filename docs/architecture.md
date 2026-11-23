@@ -10,6 +10,10 @@ Compatibilidade futura do painel foi verificada na Fase 1 por Composer dry-run: 
 
 ## Responsabilidades
 
+A superfície pública da TV usa uma capacidade de leitura restrita ao estado de aula e à logo. O middleware dedicado verifica o token e resolve o escopo antes de consultar as sessões. O fluxo autenticado de gestão, controle e TV por sessão continua usando a sessão de usuário e suas policies. Veja as rotas e os componentes em [TV do Box](tv-do-box.md).
+
+`MovementCatalog` reúne movimentos-base e privados. `LoadLibrary` consulta os presets por equipamento, movimento e contexto. `WorkoutLoadAnalyzer` oferece resultados para revisão no editor. O comando final em `ControlWorkoutSession` usa o mesmo lease e a mesma idempotência dos demais comandos. Veja [Biblioteca V3 e finalização](library-v3-and-class-completion.md).
+
 | Local | Responsabilidade |
 | --- | --- |
 | `app/Actions/RegisterBox.php` | Cadastro transacional e administrador da box |
@@ -42,7 +46,7 @@ User não tem escopo global porque o provider de login precisa encontrá-lo ante
 
 A data civil `scheduled_for` usa o fuso IANA da box para consultas de hoje e histórico. A semana começa explicitamente na segunda-feira, independentemente do locale do processo. Vários treinos por dia e modalidade são permitidos. Não alterar timezone global. Eventos de execução usam UTC.
 
-Rascunhos aceitam conteúdo incompleto, inclusive sem blocos, mas ainda exigem modalidade, estrutura e data válidas. Parâmetros enviados continuam sujeitos a tipo, faixa e lista de campos permitidos. Publicação exige a estrutura completa (warmup/skill/workout ou somente workout), conteúdo ou estações, título da técnica e parâmetros específicos do formato. A publicação de um registro já salvo reaplica a mesma definição, em transação e com bloqueio do workout.
+Rascunhos aceitam conteúdo incompleto, inclusive sem blocos, mas ainda exigem modalidade, estrutura e data válidas. Parâmetros enviados continuam sujeitos a tipo, faixa e lista de campos permitidos. Publicação exige pelo menos uma etapa preenchida na ordem aquecimento, técnica e principal, ou apenas principal no treino simplificado, além dos parâmetros do formato. Etapas podem usar texto, cargas ou estações, conforme a validação do agregado. A publicação de um registro já salvo reaplica a mesma definição, em transação e com bloqueio do workout.
 
 Edição substitui os filhos dentro de uma transação, preservando autor e workout. Isso simplifica reordenação sem violar índices de posição e evita IDs enviados pelo cliente. Os IDs de blocos/estações mudam ao editar. A Fase 3 resolveu esse vínculo com snapshots imutáveis em timer_sessions, sem FK aos IDs de blocos/estações originais. Edições não afetam a execução ativa. Workouts com histórico não podem ser excluídos.
 
@@ -108,3 +112,15 @@ Ambientes implementados conforme [Gestão/Aula](coach-workspaces.md): novos cont
 WorkoutDefinition aceita etapas opcionais ordenadas e remove blocos vazios no aggregate. TimerConfiguration é registro universal sem restrições de tipo de bloco/modalidade; CompileTimer continua produzindo a mesma versão/unidade de configuração. Cargas continuam associadas ao principal, enquanto estações são permitidas nos blocos que as utilizarem.
 
 AdaptiveContent substitui paginação no bundle: grupos escapados, ordem preservada, medição apenas em mudanças, tentativas limitadas de densidade/colunas e fonte mínima. Cadastro/preview/ready usam conferência conservadora por resolução; a TV mede a área real. Excesso gera aviso explícito e acesso ao conteúdo completo no coach, sem transformar a TV em área com scroll ou ocultar parte do treino sem aviso. Detalhes e comandos de homologação/deploy manual em [hotfix](production-hotfix.md).
+
+
+## Editor V2
+
+Treinos publicados armazenam alterações de trabalho em `workouts.editor_draft`. Calendário, cópias e preparação consultam a revisão canônica. **Republicar** valida e substitui o agregado canônico em transação. `edit_version` coordena a edição entre abas e `content_version` coordena o conteúdo com os snapshots das aulas. As rotas de edição, pré-visualização e publicação permanecem no mesmo editor.
+
+Os módulos JavaScript do editor trabalham com o formulário existente. Estilos por linha são metadados validados preservados no snapshot com as cargas. A biblioteca da box está isolada em `LoadPreset`, a biblioteca-base é somente para leitura e a análise local de um bloco devolve sugestões para revisão. Fluxo e contratos no [guia do Editor V2](workout-editor-v2.md).
+
+
+## Programação semanal e calendário mensal
+
+`ScheduleController` usa a data civil da box e uma consulta Eloquent com escopo de tenant. A semana carrega os treinos completos. O calendário lateral usa uma consulta distinta de data e modalidade para os marcadores, com as modalidades habilitadas e o mesmo filtro de programação. Os parâmetros `date` e `month` permitem navegar separadamente. O editor completo é o padrão dos atalhos gerais e etapas habilitadas em edição usam o JSON de rascunho até serem preenchidas. Ver [etapas opcionais e programação semanal](workout-editor-v2.md#etapas-opcionais-e-programação-semanal).
